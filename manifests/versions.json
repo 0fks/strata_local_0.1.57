@@ -8,5 +8,6 @@
   "python": "3.11 x64 (validated 3.11.8)",
   "cuda_runtime": "13.0.96",
   "cublas": "13.0.2.14",
-  "driver_min": "580.65"
+  "driver_min": "580.65",
+  "gguf_py_commit": "3cf03257f219afbe7334045ff7c6a06ac68c627d"
 }

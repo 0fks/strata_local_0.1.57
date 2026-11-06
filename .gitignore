@@ -15,3 +15,7 @@ __pycache__/
 server.json
 .env
 .env.*
+
+/prereqs/
+
+.prepare-venv/

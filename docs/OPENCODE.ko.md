@@ -1,23 +1,22 @@
 ﻿# OpenCode 연결
 
-설치 마법사에서 컨텍스트·이미지·LAN을 선택하면 같은 값을 반영한 OpenCode V2 JSON을 만듭니다.
+Install.cmd에서 **OpenCode 자동 병합 Y**를 선택하면 현재 사용자의 설정을 백업한 뒤 Strata 공급자·기본 모델·compaction만 병합합니다. 다른 공급자와 MCP는 유지합니다. OpenCode 프로그램은 별도 설치해야 합니다.
 
-- 로컬: `<설치폴더>\clients\Local\opencode.json`, `127.0.0.1` 사용.
-- LAN 켠 경우: `<설치폴더>\clients\LAN\opencode.json`, 사용자가 입력한 실제 서버 IP 사용.
-- LAN을 끄면 외부 PC용 파일은 생성하지 않습니다.
-- 이미지 사용 시 input에 text/image, 끄면 text만 표시합니다.
-- 서버와 클라이언트 모델 ID·컨텍스트를 함께 맞춥니다. 클라이언트 출력 한도 16384, 자동 compaction buffer 24576 / keep.tokens 8000.
+설치 후 OpenCode를 완전히 종료했다가 다시 열고 **SC117 IQ3_S** 모델을 고르세요.
 
-로컬 설정을 자동 병합하도록 선택하면 `%USERPROFILE%\.config\opencode\opencode.json`을 먼저 백업하고 `providers.strata`, 기본 `model`, `compaction`만 변경합니다. 기존 다른 공급자·MCP·권한은 보존합니다. `.jsonc`를 직접 쓰는 환경은 자동 병합 대신 수동 병합하세요. 잘못된 기존 JSON을 만나면 덮어쓰지 않고 실패합니다.
+생성 파일은 선택한 설치 폴더에 있습니다. 기본 설치 폴더를 사용했다면:
 
-LAN PC에서는 그 PC의 사용자 설정에 LAN용 JSON의 해당 항목을 병합하세요. REA 같은 MCP는 접속하는 클라이언트 PC에서 별도로 구성합니다. 서버 PC의 REA 경로를 원격 PC에 복사하지 않습니다. 설치기는 OpenCode 프로그램 자체를 설치하지 않습니다.
+- 이 PC용: `./runtime/clients/Local/opencode.json`
+- LAN 접속용: `./runtime/clients/LAN/opencode.json` (LAN 사용을 켠 경우)
 
-LAN에 TCP 포트를 허용해야 한다면 관리자 PowerShell에서 실행합니다:
+LAN PC에서는 LAN용 JSON의 providers.strata·model·compaction을 그 PC의 OpenCode 설정에 병합합니다. REA 같은 MCP는 접속하는 클라이언트에서 따로 구성합니다. 생성된 JSON에는 API 키가 있으므로 공개하지 마세요.
+
+Windows 방화벽 때문에 LAN 접속이 막히면 관리자 PowerShell을 이 저장소 폴더에서 열고 실행하세요:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Enable-LAN-Firewall.ps1 -Root C:\StrataLocal
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Enable-LAN-Firewall.ps1 -Root .\runtime
 ```
 
-이 helper는 선택한 포트를 Private 네트워크 / LocalSubnet에만 허용하고 기존 같은 이름 규칙은 덮어쓰지 않습니다. 실제 네트워크 프로필과 서브넷을 확인하세요. Git 저장소의 서버 예시 IP를 그대로 사용하는 방식이 아닙니다.
+설치 폴더를 바꿨다면 `./runtime`을 그 상대경로로 바꿉니다. 이 규칙은 Private 네트워크 / LocalSubnet에만 해당 포트를 허용합니다.
 
-API 키는 새 설치마다 5개 생성됩니다. 설치 폴더의 `api-keys.private.json`과 생성된 클라이언트 JSON은 비밀 파일입니다. 이 저장소에는 기존 PC의 실제 API 키가 들어 있지 않습니다.
+직접 설정을 편집하려면 Win+R에서 `%USERPROFILE%\.config\opencode`를 열어 opencode.json을 확인하세요. 이미 개인 설정이 있다면 파일 전체를 덮어쓰지 말고 필요한 항목만 병합합니다.

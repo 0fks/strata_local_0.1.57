@@ -25,4 +25,10 @@ class DeploymentTests(unittest.TestCase):
   d.stop(self.root)
  def test_server_config_never_uses_live_installation(self):
   c=d.server_config(self.s,self.s['paths'],self.keys,self.root/'runtime');self.assertNotIn('D:\\Git\\Strata',json.dumps(c));self.assertEqual(c['api_key'],self.keys)
+ def test_relative_paths_resolve_from_settings_not_cwd(self):
+  s=d.read(d.REPO/'settings.example.json');p=self.root/'config'/'settings.json';d.save(p,s);resolved=d.load_settings(p);self.assertEqual(resolved['install_root'],str((p.parent/'runtime').resolve()));self.assertEqual(resolved['paths']['models'],str((p.parent/'assets/models').resolve()))
+ def test_runtime_inside_clone_allowed_but_source_protected(self):
+  self.s['install_root']=str(d.REPO/'custom-runtime');d.validate(self.s)
+  self.s['install_root']=str(d.REPO/'vendor/strata')
+  with self.assertRaises(ValueError):d.validate(self.s)
 if __name__=='__main__':unittest.main()

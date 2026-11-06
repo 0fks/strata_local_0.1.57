@@ -30,7 +30,8 @@ def validate(s):
         if not Path(s['paths'][k]).is_absolute():raise ValueError('Absolute asset path required: '+k)
     for k in ('install_root','python_exe','cuda_dir'):
         if not Path(s[k]).is_absolute():raise ValueError('Absolute path required: '+k)
-    if Path(s['install_root']).resolve().is_relative_to(REPO):raise ValueError('Keep runtime installation outside the Git repository')
+    target=Path(s['install_root']).resolve()
+    if target==REPO or any(target.is_relative_to(REPO/n) for n in ('vendor','scripts','docs','tests','manifests','.git')):raise ValueError('Choose a separate runtime folder, not source/documentation folders')
     return s
 def items(s):return [x for x in read(REPO/'manifests/assets.json')['files'] if s['images'] or x['group']!='vision']
 def verify_assets(s,full=True):
@@ -47,6 +48,12 @@ def verify_assets(s,full=True):
     if ep.is_file() and digest(ep)!=read(REPO/'manifests/versions.json')['engine_manifest_sha256']:errors.append('Engine manifest does not match pinned 0.1.57')
     if errors:raise ValueError('\n'.join(errors))
     return sum(x['bytes'] for x in items(s))
+def load_settings(path):
+    path=Path(path).resolve();s=read(path)
+    for k in ('install_root','python_exe','cuda_dir'):
+        q=Path(s[k]);s[k]=str((path.parent/q).resolve()) if not q.is_absolute() else str(q.resolve())
+    s['paths']={k:str((path.parent/Path(v)).resolve()) if not Path(v).is_absolute() else str(Path(v).resolve()) for k,v in s['paths'].items()}
+    return s
 def model_id(s):return MODEL+('-cpu-vision-' if s['images'] else '-text-')+str(s['context']//1024)+'k'
 def server_config(s,paths,keys,root):
     model1=next(x['path'] for x in items(s) if x['group']=='models' and '00001-of' in x['path'])
@@ -86,7 +93,7 @@ def install(s,quick=False):
     drive=root
     while not drive.exists():drive=drive.parent
     if shutil.disk_usage(drive).free<needed:raise ValueError('Insufficient free disk space')
-    root.mkdir(parents=True,exist_ok=True);protect(root);(root/'logs').mkdir()
+    root.mkdir(parents=True,exist_ok=True);(root/'.gitignore').write_text('*\n!.gitignore\n',encoding='utf-8');protect(root);(root/'logs').mkdir()
     shutil.copytree(REPO/'vendor/strata',root/'source',ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
     shutil.copy2(Path(__file__),root/'manager.py')
     paths=dict(s['paths'])
@@ -97,7 +104,6 @@ def install(s,quick=False):
         copied=dict(s,paths=paths);verify_assets(copied,not quick)
     invoke([s['python_exe'],'-m','venv',root/'.venv']);py=root/'.venv/Scripts/python.exe'
     pip=[py,'-m','pip','install','-r',root/'source/requirements.txt']
-    if s.get('wheels'):pip+=['--no-index','--find-links',s['wheels']]
     invoke(pip);invoke([py,'-m','pip','check'])
     keys=[secrets.token_urlsafe(36) for _ in range(5)];save(root/'server.json',server_config(s,paths,keys,root));save(root/'api-keys.private.json',{'local':keys[0],'lan':keys[1],'reserved':keys[2:]})
     local=opencode(s,'http://127.0.0.1:'+str(s['port']),keys[0]);save(root/'clients/Local/opencode.json',local)
@@ -172,7 +178,7 @@ def main(argv=None):
         elif args.command=='stop':stop(root)
         else:print(json.dumps(health(root),indent=2))
         return
-    s=validate(read(args.settings))
+    s=validate(load_settings(args.settings))
     if args.command=='plan':
         size=verify_assets(s,False);print(json.dumps({'settings':s,'asset_bytes':size,'will_copy_assets':s['copy_assets'],'hashes_checked':False,'starts_service':False},ensure_ascii=True,indent=2))
     elif args.command=='verify-assets':verify_assets(s,True);print('All asset hashes match.')
