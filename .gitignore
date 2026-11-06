@@ -1,0 +1,17 @@
+/settings.local.json
+/assets/
+/runtime/
+/dist/
+/.venv/
+*.log
+__pycache__/
+*.pyc
+
+# Private runtime / large local assets, wherever accidentally copied
+*.gguf
+*.safetensors
+*.whl
+*.private.json
+server.json
+.env
+.env.*

@@ -1,0 +1,150 @@
+{
+  "model_repo": "SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF",
+  "model_revision": "eec4e10a2c29b440a2ae85591fa11569ce752963",
+  "files": [
+    {
+      "group": "models",
+      "path": "Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_S-00001-of-00002.gguf",
+      "bytes": 55063448064,
+      "sha256": "40f369eca301ec6ea318dbb671b3132c26a2f0b89aa5458a7051b33215ee296c"
+    },
+    {
+      "group": "models",
+      "path": "Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_S-00002-of-00002.gguf",
+      "bytes": 28800138432,
+      "sha256": "316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113"
+    },
+    {
+      "group": "pack",
+      "path": "compat-bf16.json",
+      "bytes": 196,
+      "sha256": "8036288322e0309515aff25d781d6b97a3174844f26e5d0c32bbf198951b0ae3"
+    },
+    {
+      "group": "pack",
+      "path": "conversions.json",
+      "bytes": 345,
+      "sha256": "eb701949b939627276728e672643f2e1ef8099806a0b8aa9bee370e39153c2eb"
+    },
+    {
+      "group": "pack",
+      "path": "dense.bin",
+      "bytes": 1538035200,
+      "sha256": "d2af3d8331e5c7a1985d1d589747230f9d56719a6d33c7cddc9ee6b81cde6b13"
+    },
+    {
+      "group": "pack",
+      "path": "index.txt",
+      "bytes": 93697,
+      "sha256": "02e228d5488792b1c2cb97b7021d099f47b198f5e13d0b9f9bc8716bb0592146"
+    },
+    {
+      "group": "pack",
+      "path": "native_experts.txt",
+      "bytes": 3316,
+      "sha256": "adba4968661f3d59f749a676a87948e29236c81997f649f5526daf71148edc24"
+    },
+    {
+      "group": "pack",
+      "path": "tokenizer/chat_template.jinja",
+      "bytes": 9993,
+      "sha256": "12827f24b742ea4e80cdc12dbcf9622227056b9f797252a3149263d4f9aaadce"
+    },
+    {
+      "group": "pack",
+      "path": "tokenizer/merges.txt",
+      "bytes": 3600844,
+      "sha256": "080cf95432173729d160346b7882bd2a644b07f7a3813a3eb73f4e66787bfde9"
+    },
+    {
+      "group": "pack",
+      "path": "tokenizer/tokenizer.json",
+      "bytes": 554,
+      "sha256": "87be2ac47d8bc7393b7435df6ccd276740019a393941a2585d5edce59f450c54"
+    },
+    {
+      "group": "pack",
+      "path": "tokenizer/token_type.json",
+      "bytes": 744960,
+      "sha256": "5088c8c298fc06af8382ddb3b76c888703ac2634e82263b97eedcc2ad202738b"
+    },
+    {
+      "group": "pack",
+      "path": "tokenizer/vocab.json",
+      "bytes": 5737005,
+      "sha256": "4ba64f0332abcfb0b600b7df1537d1e836e68009d5fb7cdb77339738dc6365c4"
+    },
+    {
+      "group": "mtp",
+      "path": "dense.bin",
+      "bytes": 116099072,
+      "sha256": "c724dc0b0822ada5d2977bf5bde821605feabaa64ea2e0045b67ca656329070a"
+    },
+    {
+      "group": "mtp",
+      "path": "dense.txt",
+      "bytes": 1880,
+      "sha256": "8773c81ebb0986e37fe94a8a9933e87be48b1fabc6889a0106bcdab179d1c2ac"
+    },
+    {
+      "group": "mtp",
+      "path": "draft_vocab.bin",
+      "bytes": 425196,
+      "sha256": "b1e1d3a7a9e4bf862dcd5923ce661fb59bbd07907e594df5cf86a62ac235cb91"
+    },
+    {
+      "group": "mtp",
+      "path": "experts.bin",
+      "bytes": 707788800,
+      "sha256": "09398406be61f1f54c93861f449e48b8df0bfccbc9ec9b2b7636775a6ea9244f"
+    },
+    {
+      "group": "vision",
+      "path": "mmproj-Qwen3.8-Flash-Next-BF16.gguf",
+      "bytes": 907542944,
+      "sha256": "2e788f8c511d8093c7b43cb87b2fd7e14228340318057f8fb20c86df2efe2355"
+    },
+    {
+      "group": "engine",
+      "path": "BUILD.json",
+      "bytes": 241,
+      "sha256": "3a40b935898f22a0a040e529a586d1b7c2de9df81e8dad6d7cb3e67182722d0d"
+    },
+    {
+      "group": "engine",
+      "path": "cublas64_13.dll",
+      "bytes": 51776624,
+      "sha256": "b5846446f2a151ca24b74b8113d4ca32c52105ad89d4c2f1bc56a4ccffa9ea61"
+    },
+    {
+      "group": "engine",
+      "path": "cublasLt64_13.dll",
+      "bytes": 478140016,
+      "sha256": "680561bdc5d8a8c921e9ae974e6b60a6608c9d9fca8c0fd125e9da08c5c33ff1"
+    },
+    {
+      "group": "engine",
+      "path": "engine-component.json",
+      "bytes": 1552,
+      "sha256": "7964873aac7331dd0309c17c49bf3a886616043741558677ec8158c9ba92da7e"
+    },
+    {
+      "group": "engine",
+      "path": "strata-vision.exe",
+      "bytes": 108196352,
+      "sha256": "18fe7489947e3405d97d0f4f561bfdb53b56a1ffba99e696adc5e1ad3f6acb70"
+    },
+    {
+      "group": "engine",
+      "path": "strata.exe",
+      "bytes": 297680384,
+      "sha256": "8506b6876d4ae46d245dadb38201790685b2371b676d236ea9d1ab54c6c7519f"
+    },
+    {
+      "group": "engine",
+      "path": "strata_kq.dll",
+      "bytes": 34449920,
+      "sha256": "04e0e86fc5e6358d1e35b15957074aff14de6dff09c9af984bf4d8987b20da17"
+    }
+  ]
+}

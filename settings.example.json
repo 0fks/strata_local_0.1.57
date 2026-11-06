@@ -1,0 +1,22 @@
+{
+  "install_root": "C:/StrataLocal",
+  "python_exe": "C:/Path/To/Python311/python.exe",
+  "cuda_dir": "C:/StrataPrereqs/Lib/site-packages/nvidia/cu13/bin/x86_64",
+  "paths": {
+    "models": "E:/StrataAssets/models",
+    "pack": "E:/StrataAssets/pack",
+    "mtp": "E:/StrataAssets/mtp",
+    "vision": "E:/StrataAssets/vision",
+    "engine": "E:/StrataAssets/engine"
+  },
+  "context": 196608,
+  "images": true,
+  "lan": false,
+  "advertise_host": "",
+  "port": 8188,
+  "copy_assets": true,
+  "merge_opencode": false,
+  "shortcuts": true,
+  "startup": false,
+  "wheels": ""
+}

@@ -1,0 +1,9 @@
+{
+  "source_commit": "9f7d977d220e9fdf2ec53cf2620cdadac1cfb24e",
+  "source_files": 5780,
+  "missing": [],
+  "modified": [],
+  "extra": [],
+  "git_archive_crlf_normalized_files": 5374,
+  "method": "Git blob SHA1 compared for every file; CRLF normalized back to original blob bytes"
+}

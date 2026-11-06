@@ -1,0 +1,12 @@
+{
+  "upstream": "https://github.com/Niko1221/Strata.git",
+  "commit": "9f7d977d220e9fdf2ec53cf2620cdadac1cfb24e",
+  "engine": "0.1.57",
+  "engine_manifest_sha256": "7964873aac7331dd0309c17c49bf3a886616043741558677ec8158c9ba92da7e",
+  "engine_url": "https://github.com/Niko1221/Strata/releases/download/v0.2.11/strata-engine-0.1.57-windows-x86_64-cuda-cuda13.tar.gz",
+  "engine_archive_sha256": "0cdf191f0fb39b90edbb902f4d096b90f2ee90a4542deb8aef24985b22407c0f",
+  "python": "3.11 x64 (validated 3.11.8)",
+  "cuda_runtime": "13.0.96",
+  "cublas": "13.0.2.14",
+  "driver_min": "580.65"
+}
