@@ -1,5 +1,8 @@
 import hashlib,http.server,importlib.util,io,tarfile,tempfile,threading,unittest
 from pathlib import Path
+from unittest.mock import patch
+from urllib.error import URLError
+from contextlib import redirect_stdout
 spec=importlib.util.spec_from_file_location('prepare',Path(__file__).resolve().parents[1]/'scripts/prepare_models.py');p=importlib.util.module_from_spec(spec);spec.loader.exec_module(p)
 DATA=b'local-test-download-data'*80
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -22,4 +25,14 @@ class DownloadTests(unittest.TestCase):
   with tarfile.open(archive,'w:gz') as tf:
    member=tarfile.TarInfo('../escape');member.size=1;tf.addfile(member,io.BytesIO(b'x'))
   with self.assertRaises(ValueError):p.safe_unpack(archive,self.root/'out',100)
+ def test_safe_source_url_does_not_log_credentials(self):
+  text=p.safe_url('https://user:password@example.test:8443/model.gguf?token=secret')
+  self.assertEqual(text,'https://example.test:8443/model.gguf');self.assertNotIn('password',text);self.assertNotIn('secret',text)
+ def test_timeout_reports_destination_and_keeps_partial(self):
+  f=self.root/'timeout.gguf';part=f.with_name(f.name+'.part');part.write_bytes(b'ab')
+  def fail(*args,**kwargs):
+   p.LAST_HOST='blocked-cdn.example';raise URLError(TimeoutError('timed out'))
+  with patch.object(p,'open_url',side_effect=fail),patch.object(p.time,'sleep'),redirect_stdout(io.StringIO()) as output:
+   with self.assertRaises(RuntimeError) as e:p.fetch(self.url,f,len(DATA),hashlib.sha256(DATA).hexdigest())
+  self.assertIn('blocked-cdn.example',str(e.exception));self.assertEqual(part.read_bytes(),b'ab');self.assertFalse(f.exists());self.assertIn('Connecting (attempt 1/3',output.getvalue())
 if __name__=='__main__':unittest.main()

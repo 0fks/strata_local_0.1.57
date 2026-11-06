@@ -22,7 +22,9 @@ py -3.11 -m venv .\prereqs
 - 파일을 받을 폴더: 기본값 **`../strata-assets`** (clone 폴더 바깥). `D:\strata-assets`처럼 다른 드라이브 경로도 입력할 수 있습니다.
 - 이미지 입력: 사용하면 **Y**, 텍스트만 쓰면 **N**.
 
-모델·엔진을 다운로드하고 실행에 필요한 파일을 자동 생성합니다. **Hugging Face 대신 hf-mirror와 ModelScope를 사용합니다.** 약 90GB와 준비용 임시 공간이 필요해 시간이 걸립니다. 중단됐다면 같은 폴더를 선택해 다시 실행하세요.
+모델·엔진을 다운로드하고 실행에 필요한 파일을 자동 생성합니다. **GGUF는 hf-mirror, MTP는 ModelScope를 사용합니다. 실제 GGUF 전송은 Hugging Face CDN으로 연결될 수 있습니다.** 약 90GB와 준비용 임시 공간이 필요해 시간이 걸립니다. 중단됐다면 같은 폴더를 선택해 다시 실행하세요.
+
+접속 시간 초과(WinError 10060)가 나면 [다운로드 연결 안내](docs/NETWORK.ko.md)를 보세요.
 
 ## 3. Install.cmd 실행
 

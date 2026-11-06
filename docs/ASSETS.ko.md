@@ -25,7 +25,7 @@
 
 수동으로 받았다면 위 두 GGUF를 선택한 `models` 폴더에, 이미지 파일은 `vision` 폴더에 원래 이름대로 넣고 Prepare-Models.cmd를 실행하세요. 이미 정확히 받은 파일은 검사 후 다시 받지 않습니다. pack과 MTP는 도구가 준비하므로 사용자가 따로 구할 필요가 없습니다.
 
-hf-mirror는 제3자 대체 서버입니다. 항상 접속된다고 보장할 수 없으며, 파일이 고정 해시와 다르면 준비를 중단합니다. 단순히 파일 이름만 보고 다른 가중치를 사용하지 않습니다.
+hf-mirror는 제3자 대체 서버이며 실제 전송이 huggingface.co와 us.aws.cdn.hf.co로 리디렉션되는 것을 확인했습니다. 따라서 Hugging Face 네트워크 접속 없이 다운로드된다고 보장할 수 없습니다. 항상 접속된다고 보장할 수 없으며, 파일이 고정 해시와 다르면 준비를 중단합니다. 단순히 파일 이름만 보고 다른 가중치를 사용하지 않습니다.
 
 ### MTP — ModelScope
 
@@ -55,3 +55,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Prepare-Models.ps1 -Pr
 다운로드 질문에 `../strata-assets`처럼 clone 폴더 밖의 상대경로 또는 `D:\strata-assets`처럼 다른 드라이브 경로를 입력할 수 있습니다. 설치 화면의 다운로드 폴더에도 같은 값을 입력하세요.
 
 나중에 옮길 때에는 Strata를 중지하고 폴더 전체를 이동한 뒤 `Change-Assets.cmd`로 새 위치를 연결하세요. Python/CUDA가 있는 prereqs 및 설치 폴더 자체를 옮기는 기능은 아닙니다.
+
+연결 시간 초과는 [네트워크 오류 안내](NETWORK.ko.md)를 참고하세요.
