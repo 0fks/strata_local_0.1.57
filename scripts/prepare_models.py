@@ -111,11 +111,20 @@ def main():
  downloads=[(model_url(a.modelscope,x['group'],x['path']),x) for x in manifest if x['group']=='models' or (images and x['group']=='vision')]
  index_url=a.modelscope.rstrip('/')+'/models/Qwen/Qwen3.8-Flash-Next/resolve/master/model.safetensors.index.json'
  if a.probe:
-  for u,x in downloads:probe(u,x['bytes'],range_probe=True)
-  probe(version['engine_url'])
-  with open_url(Request(index_url,headers={'User-Agent':'strata_local/1'}),timeout=40) as r:index=json.load(r)
-  weight=next(v for k,v in index['weight_map'].items() if k.startswith('mtp.'))
-  probe(a.modelscope.rstrip('/')+'/models/Qwen/Qwen3.8-Flash-Next/resolve/master/'+weight,range_probe=True)
+  failures=[]
+  def check(label,fn):
+   try:fn();print('PASS: '+label,flush=True)
+   except Exception as exc:
+    detail=network_error(exc) if isinstance(exc,(OSError,TimeoutError)) else str(exc)
+    failures.append(label);print('FAIL: '+label+' | host='+LAST_HOST+' | '+detail,flush=True)
+  for u,x in downloads:check(x['path'],lambda u=u,x=x:probe(u,x['bytes'],range_probe=True))
+  check('GitHub engine',lambda:probe(version['engine_url']))
+  def check_mtp():
+   with open_url(Request(index_url,headers={'User-Agent':'strata_local/1'})) as r:index=json.load(r)
+   weight=next(v for k,v in index['weight_map'].items() if k.startswith('mtp.'))
+   probe(a.modelscope.rstrip('/')+'/models/Qwen/Qwen3.8-Flash-Next/resolve/master/'+weight,range_probe=True)
+  check('ModelScope MTP',check_mtp)
+  if failures:raise RuntimeError('Connection checks failed: '+', '.join(failures)+'. No model weights were downloaded. Share the FAIL lines; do not reinstall Python/CUDA for a network timeout.')
   print('Source probe passed. Model weights were not downloaded.');return
  if sys.version_info[:2]!=(3,11):raise ValueError('Python 3.11 required')
  assets.mkdir(parents=True,exist_ok=True);(assets/'.gitignore').write_text('*\n!.gitignore\n',encoding='utf-8')
