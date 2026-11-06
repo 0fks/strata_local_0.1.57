@@ -2,7 +2,7 @@
 
 Install.cmd에서 **OpenCode 자동 병합 Y**를 선택하면 현재 사용자의 설정을 백업한 뒤 Strata 공급자·기본 모델·compaction만 병합합니다. 다른 공급자와 MCP는 유지합니다. OpenCode 프로그램은 별도 설치해야 합니다.
 
-설치 후 OpenCode를 완전히 종료했다가 다시 열고 **Unsloth UD-IQ3_XXS v3.1** 모델을 고르세요.
+설치 후 OpenCode를 완전히 종료했다가 다시 열고 **SC117 IQ3_S** 모델을 고르세요.
 
 생성 파일은 선택한 설치 폴더에 있습니다. 기본 설치 폴더를 사용했다면:
 

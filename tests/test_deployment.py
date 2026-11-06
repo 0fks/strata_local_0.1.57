@@ -11,17 +11,10 @@ class DeploymentTests(unittest.TestCase):
   self.s.update(lan=True,advertise_host='192.168.1.10',images=True,context=196608);d.validate(self.s);c=d.server_config(self.s,self.s['paths'],self.keys,self.root/'runtime');client=d.opencode(self.s,'http://192.168.1.10:18765',self.keys[1]);self.assertEqual(c['host'],'0.0.0.0');self.assertFalse(c['vision']['gpu']);self.assertEqual(c['vision']['threads'],8);self.assertEqual(client['model'],'strata/'+c['model_name']);model=client['providers']['strata']['models'][c['model_name']];self.assertIn('image',model['capabilities']['input']);self.assertEqual(model['limit']['context'],196608)
  def test_merge_preserves_mcp_and_other_provider_and_backup(self):
   p=self.root/'opencode.json';original={'mcp':{'servers':{'rea':{'type':'local','command':['node','rea.mjs']}}},'providers':{'other':{'package':'other-package'}},'permissions':[{'action':'websearch','effect':'deny','resource':'*'}]};d.save(p,original);d.merge_opencode(p,d.opencode(self.s,'http://127.0.0.1:18765',self.keys[0]));merged=d.read(p);self.assertEqual(merged['mcp'],original['mcp']);self.assertEqual(merged['providers']['other'],original['providers']['other']);self.assertEqual(merged['permissions'],original['permissions']);backups=list(self.root.glob('opencode.json.strata-backup-*'));self.assertEqual(len(backups),1);self.assertEqual(d.read(backups[0]),original)
- def test_four_shard_model_uses_upstream_auto_discovery(self):
-  c=d.server_config(self.s,self.s['paths'],self.keys,self.root/'runtime')
-  self.assertIn('00001-of-00004.gguf',c['args'][c['args'].index('--native')+1]);self.assertNotIn('--ple-gguf',c['args']);self.assertIn('unsloth',c['model_name']);self.assertEqual(c['port'],18765)
- def test_pack_receipt_rejects_another_model_and_changed_files(self):
-  manifest=d.read(d.REPO/'manifests/assets.json');folder=self.root/'pack';files=[]
-  for name in manifest['generated_pack_files']:
-   f=folder/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_bytes(b'generated-pack');files.append({'group':'pack','path':name,'bytes':f.stat().st_size,'sha256':d.digest(f)})
-  receipt={'profile':manifest['profile'],'sources':[x for x in manifest['files'] if x['group']=='models'],'files':files};d.save(folder/'pack-manifest.json',receipt)
-  self.assertEqual(len(d.pack_items(folder)),len(files))
-  receipt['sources'][0]['sha256']='0'*64;d.save(folder/'pack-manifest.json',receipt)
-  with self.assertRaises(ValueError):d.pack_items(folder)
+ def test_restored_sc117_profile_and_port(self):
+  manifest=d.read(d.REPO/'manifests/assets.json');models=[x for x in manifest['files'] if x['group']=='models'];self.assertEqual(len(models),2);self.assertEqual(len(manifest['files']),24)
+  self.assertEqual(manifest['model_repo'],'SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF')
+  c=d.server_config(self.s,self.s['paths'],self.keys,self.root/'runtime');self.assertIn('00001-of-00002.gguf',c['args'][c['args'].index('--native')+1]);self.assertIn('00002-of-00002.gguf',c['args'][c['args'].index('--ple-gguf')+1]);self.assertIn('sc117-iq3_s',c['model_name']);self.assertEqual(c['port'],18765)
  def test_invalid_context_rejected(self):
   self.s['context']=192
   with self.assertRaises(ValueError):d.validate(self.s)

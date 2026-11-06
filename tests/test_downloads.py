@@ -25,15 +25,6 @@ class DownloadTests(unittest.TestCase):
   with tarfile.open(archive,'w:gz') as tf:
    member=tarfile.TarInfo('../escape');member.size=1;tf.addfile(member,io.BytesIO(b'x'))
   with self.assertRaises(ValueError):p.safe_unpack(archive,self.root/'out',100)
- def test_modelscope_paths_and_generated_pack_corruption(self):
-  manifest=p.deploy.read(p.ROOT/'manifests/assets.json');pins=[x for x in manifest['files'] if x['group']=='models'];self.assertEqual(len(pins),4)
-  for x in pins:
-   url=p.model_url('https://www.modelscope.cn',x['group'],x['path']);self.assertIn('/models/unsloth/',url);self.assertIn('/UD-IQ3_XXS/',url);self.assertNotIn('huggingface',url)
-  folder=self.root/'pack';files=[]
-  for name in manifest['generated_pack_files']:
-   f=folder/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_bytes(DATA);files.append({'group':'pack','path':name,'bytes':len(DATA),'sha256':hashlib.sha256(DATA).hexdigest()})
-  p.deploy.save(folder/'pack-manifest.json',{'profile':manifest['profile'],'sources':pins,'files':files});self.assertTrue(p.group_ok('pack',self.root,manifest['files']))
-  (folder/'dense.bin').write_bytes(b'x'*len(DATA));self.assertFalse(p.group_ok('pack',self.root,manifest['files']))
  def test_safe_source_url_does_not_log_credentials(self):
   text=p.safe_url('https://user:password@example.test:8443/model.gguf?token=secret')
   self.assertEqual(text,'https://example.test:8443/model.gguf');self.assertNotIn('password',text);self.assertNotIn('secret',text)

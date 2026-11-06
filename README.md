@@ -24,7 +24,7 @@ py -3.11 -m venv .\prereqs
 
 기본 API 포트는 **18765**이며 설치할 때 바꿀 수 있습니다.
 
-모델·엔진을 다운로드하고 실행에 필요한 파일을 자동 생성합니다. **GGUF·이미지 인코더·MTP는 ModelScope, 엔진은 GitHub에서 받습니다. Hugging Face에 연결하지 않습니다.** 약 90GB와 준비용 임시 공간이 필요해 시간이 걸립니다. 중단됐다면 같은 폴더를 선택해 다시 실행하세요.
+모델·엔진을 다운로드하고 실행에 필요한 파일을 자동 생성합니다. **SC117 GGUF·이미지 인코더는 Hugging Face, MTP는 ModelScope, 엔진은 GitHub에서 받습니다.** 약 90GB와 준비용 임시 공간이 필요해 시간이 걸립니다. 중단됐다면 같은 폴더를 선택해 다시 실행하세요.
 
 접속 시간 초과(WinError 10060)가 나면 [다운로드 연결 안내](docs/NETWORK.ko.md)를 보세요.
 
@@ -50,7 +50,7 @@ py -3.11 -m venv .\prereqs
 
 설치가 끝나면 바탕화면 **Strata Local Start**로 켜고 **Strata Local Stop**으로 끕니다.
 
-OpenCode를 완전히 종료했다가 다시 열고 **Unsloth UD-IQ3_XXS v3.1** 모델을 선택하세요. LAN 연결용 설정은 설치 폴더의 `clients/LAN/opencode.json`에 생성됩니다.
+OpenCode를 완전히 종료했다가 다시 열고 **SC117 IQ3_S** 모델을 선택하세요. LAN 연결용 설정은 설치 폴더의 `clients/LAN/opencode.json`에 생성됩니다.
 
 다운로드한 파일 폴더는 설치 후에도 계속 사용하므로 삭제하지 마세요. OpenCode 프로그램 자체는 별도로 설치해야 합니다.
 
@@ -67,4 +67,13 @@ OpenCode를 완전히 종료했다가 다시 열고 **Unsloth UD-IQ3_XXS v3.1** 
 
 ---
 
-이 배포본은 Unsloth UD-IQ3_XXS v3.1 전용입니다. 원본 Strata 소스와 라이선스를 보존하며 API 키는 설치할 때 새로 생성합니다. [라이선스](THIRD_PARTY_NOTICES.md) · [검증 범위](docs/VALIDATION.ko.md) · [관리자용 업데이트 절차](docs/UPDATING.ko.md)
+이 배포본은 SC117 IQ3_S 전용입니다. 원본 Strata 소스와 라이선스를 보존하며 API 키는 설치할 때 새로 생성합니다. [라이선스](THIRD_PARTY_NOTICES.md) · [검증 범위](docs/VALIDATION.ko.md) · [관리자용 업데이트 절차](docs/UPDATING.ko.md)
+## 다른 PC에서 준비한 NVMe를 연결해 사용하려면
+
+1. 인터넷 되는 Windows PC에 NVMe를 연결하고 Prepare-Models.cmd를 실행합니다.
+2. 다운로드 폴더로 NVMe의 원하는 폴더를 지정합니다. 예: X:\strata-assets.
+3. 다운로드와 pack·MTP 생성까지 끝나 **Files ready**가 출력되는지 확인합니다.
+4. NVMe를 사용할 PC에 연결합니다. 드라이브 문자는 달라져도 됩니다.
+5. 사용할 PC에서 Python·CUDA를 준비한 뒤 Install.cmd를 실행하고, 실제 assets 경로를 지정합니다.
+
+모델·엔진을 다시 다운로드하지 않습니다. Python 패키지 설치는 별도로 진행됩니다. 준비 PC의 .prepare-venv는 대상 PC에서 재사용하지 않습니다. Unsloth로 준비하던 폴더 대신 새 SC117용 폴더를 지정하면 파일이 섞이지 않습니다.
