@@ -2,10 +2,10 @@
 
 **Prepare-Models.cmd가 다운로드와 준비를 처리합니다.** 다른 PC에서 파일을 가져올 필요가 없습니다.
 
-기본 위치는 다음과 같습니다. 다른 폴더를 선택하면 `assets` 부분만 달라집니다.
+기본 위치는 다음과 같습니다. 다른 폴더를 선택하면 폴더 이름만 달라집니다.
 
 ```text
-./assets/
+../strata-assets/
   models/   SC117 IQ3_S GGUF 2개
   pack/     GGUF에서 자동 생성
   mtp/      ModelScope에서 필요한 텐서를 받아 자동 생성
@@ -50,3 +50,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Prepare-Models.ps1 -Pr
 ```
 
 이 검사는 대용량 가중치를 받지 않습니다. 서버 차단·다운로드 오류가 나면 출력된 URL과 상태를 확인하세요. 모든 대체 서버까지 접속 불가하면 파일을 새로 다운로드할 수 없으므로 네트워크 경로를 해결해야 합니다.
+## 폴더 선택 / 변경
+
+다운로드 질문에 `../strata-assets`처럼 clone 폴더 밖의 상대경로 또는 `D:\strata-assets`처럼 다른 드라이브 경로를 입력할 수 있습니다. 설치 화면의 다운로드 폴더에도 같은 값을 입력하세요.
+
+나중에 옮길 때에는 Strata를 중지하고 폴더 전체를 이동한 뒤 `Change-Assets.cmd`로 새 위치를 연결하세요. Python/CUDA가 있는 prereqs 및 설치 폴더 자체를 옮기는 기능은 아닙니다.

@@ -19,7 +19,7 @@ py -3.11 -m venv .\prereqs
 
 **`Prepare-Models.cmd`를 더블클릭**합니다.
 
-- 파일을 받을 폴더: 기본값 **`./assets`**. `./my-model`처럼 바꿔도 됩니다.
+- 파일을 받을 폴더: 기본값 **`../strata-assets`** (clone 폴더 바깥). `D:\strata-assets`처럼 다른 드라이브 경로도 입력할 수 있습니다.
 - 이미지 입력: 사용하면 **Y**, 텍스트만 쓰면 **N**.
 
 모델·엔진을 다운로드하고 실행에 필요한 파일을 자동 생성합니다. **Hugging Face 대신 hf-mirror와 ModelScope를 사용합니다.** 약 90GB와 준비용 임시 공간이 필요해 시간이 걸립니다. 중단됐다면 같은 폴더를 선택해 다시 실행하세요.
@@ -48,9 +48,18 @@ py -3.11 -m venv .\prereqs
 
 OpenCode를 완전히 종료했다가 다시 열고 **SC117 IQ3_S** 모델을 선택하세요. LAN 연결용 설정은 설치 폴더의 `clients/LAN/opencode.json`에 생성됩니다.
 
-다운로드한 `assets` 폴더는 설치 후에도 계속 사용하므로 삭제하지 마세요. OpenCode 프로그램 자체는 별도로 설치해야 합니다.
+다운로드한 파일 폴더는 설치 후에도 계속 사용하므로 삭제하지 마세요. OpenCode 프로그램 자체는 별도로 설치해야 합니다.
 
 [다운로드 경로·파일 목록](docs/ASSETS.ko.md) · [Python/CUDA 상세](docs/PREREQUISITES.ko.md) · [OpenCode 연결](docs/OPENCODE.ko.md)
+
+## 다운로드 위치를 나중에 바꾸려면
+
+1. **Strata Local Stop**으로 중지합니다.
+2. 다운로드 폴더 전체를 새 위치로 옮깁니다. 예: `D:\strata-assets` → `E:\strata-assets`.
+3. **`Change-Assets.cmd`**를 더블클릭하고 설치 폴더와 새 파일 폴더를 입력합니다.
+4. 파일 검사가 끝나면 **Strata Local Start**로 다시 켭니다.
+
+이 도구는 파일을 직접 이동하지 않고 새 경로를 연결합니다. API 키·모델 설정·OpenCode 설정은 유지하고 변경 전 설정을 백업합니다. 실행 중이거나 파일이 부족하면 변경을 거부합니다. 상대경로와 다른 드라이브의 전체 경로를 모두 사용할 수 있습니다.
 
 ---
 

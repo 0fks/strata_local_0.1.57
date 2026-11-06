@@ -68,7 +68,7 @@ def probe(url,size=None,range_probe=False):
   if size is not None and length and int(length)!=size:raise ValueError('Remote size differs from pinned manifest')
   print(json.dumps({'url':url,'status':r.status,'bytes':length}),flush=True)
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--assets',default='./assets');ap.add_argument('--no-images',action='store_true');ap.add_argument('--mirror',default='https://hf-mirror.com');ap.add_argument('--modelscope',default='https://www.modelscope.cn');ap.add_argument('--probe',action='store_true');a=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument('--assets',default='../strata-assets');ap.add_argument('--no-images',action='store_true');ap.add_argument('--mirror',default='https://hf-mirror.com');ap.add_argument('--modelscope',default='https://www.modelscope.cn');ap.add_argument('--probe',action='store_true');a=ap.parse_args()
  assets=Path(a.assets).resolve()
  if assets==ROOT or any(assets.is_relative_to(ROOT/n) for n in ('vendor','scripts','docs','tests','manifests','.git','prereqs')):raise ValueError('Choose a separate assets folder, such as ./assets')
  images=not a.no_images;manifest=deploy.read(ROOT/'manifests/assets.json')['files'];version=deploy.read(ROOT/'manifests/versions.json')

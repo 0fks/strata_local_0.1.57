@@ -3,11 +3,11 @@
   "python_exe": "./prereqs/Scripts/python.exe",
   "cuda_dir": "./prereqs/Lib/site-packages/nvidia/cu13/bin/x86_64",
   "paths": {
-    "models": "./assets/models",
-    "pack": "./assets/pack",
-    "mtp": "./assets/mtp",
-    "vision": "./assets/vision",
-    "engine": "./assets/engine"
+    "models": "../strata-assets/models",
+    "pack": "../strata-assets/pack",
+    "mtp": "../strata-assets/mtp",
+    "vision": "../strata-assets/vision",
+    "engine": "../strata-assets/engine"
   },
   "context": 196608,
   "images": true,

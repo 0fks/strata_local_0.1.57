@@ -40,7 +40,9 @@ def verify_assets(s,full=True):
         p=inside(s['paths'][x['group']],x['path'])
         if not p.is_file():errors.append('Missing: '+str(p));continue
         if p.stat().st_size!=x['bytes']:errors.append('Size mismatch: '+str(p));continue
-        if full and digest(p)!=x['sha256']:errors.append('SHA256 mismatch: '+str(p))
+        if full:
+            print('SHA-256 check: '+p.name,flush=True)
+            if digest(p)!=x['sha256']:errors.append('SHA256 mismatch: '+str(p))
     cuda=Path(s['cuda_dir'])
     if not (cuda/'cudart64_13.dll').is_file():errors.append('CUDA 13 runtime cudart64_13.dll missing from cuda_dir')
     # Manifest hash pins the separately distributed, originally signed engine package.
@@ -169,12 +171,56 @@ def stop(root):
     if st.get('root')!=str(root):raise ValueError('Ownership path mismatch; nothing stopped')
     if stamp(st['pid'])!=st['creation']:print('Stale record; nothing stopped.');return
     invoke(['taskkill','/PID',str(st['pid']),'/T','/F']);state.unlink();print('Owned server stopped.')
+def rebind(root,assets,full=True):
+    root=Path(root).resolve();assets=Path(assets)
+    if not assets.is_absolute():assets=REPO/assets
+    assets=assets.resolve();record=root/'installed.json';old=read(root/'server.json');meta=read(record)
+    state=root/'server-process.private.json'
+    if state.exists():
+        st=read(state)
+        if st.get('creation') is not None and stamp(st['pid'])==st['creation']:raise ValueError('Stop Strata before changing asset paths')
+    with socket.socket() as sock:
+        if sock.connect_ex(('127.0.0.1',old['port']))==0:raise ValueError('API port is active. Stop the service first; nothing changed.')
+    settings=dict(meta['settings']);paths={g:str(assets/g) for g in settings['paths']};settings['paths']=paths
+    verify_assets(settings,full)
+    replacement=server_config(settings,paths,old['api_key'],root)
+    new=dict(old);args=list(old['args'])
+    # Change only file locations; preserve user tuning, keys, model identity and network settings.
+    for flag in ('--pack','--native','--ple-gguf','--mtp'):
+        if flag not in args:raise ValueError('Cannot identify required path flag: '+flag)
+        pos=args.index(flag)+1;args[pos]=replacement['args'][replacement['args'].index(flag)+1]
+    new['args']=args;new['tokenizer']=replacement['tokenizer'];new['exe']=replacement['exe']
+    old_engine=str(Path(old['exe']).parent);new['lib_dirs']=[paths['engine']]+[x for x in old.get('lib_dirs',[]) if x!=old_engine and x!=paths['engine']]
+    if 'vision' in old:
+        new['vision']=dict(old['vision'])
+        for key in ('exe','model','mmproj'):new['vision'][key]=replacement['vision'][key]
+    local=REPO/'settings.local.json';local_new=None
+    if local.exists():
+        current=load_settings(local)
+        if Path(current['install_root']).resolve()==root:
+            local_new=read(local);local_new['paths']=paths;local_new['copy_assets']=False
+    suffix='.before-path-change-'+datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')
+    shutil.copy2(root/'server.json',root/('server.json'+suffix));shutil.copy2(record,root/('installed.json'+suffix))
+    local_backup=root/('settings.local.json'+suffix)
+    if local_new is not None:shutil.copy2(local,local_backup)
+    try:
+        save(root/'server.json',new);meta['settings']=settings;meta['settings']['copy_assets']=False;save(record,meta)
+        if local_new is not None:save(local,local_new)
+    except Exception:
+        shutil.copy2(root/('server.json'+suffix),root/'server.json');shutil.copy2(root/('installed.json'+suffix),record)
+        if local_new is not None:shutil.copy2(local_backup,local)
+        raise
+    print('Asset paths updated: '+str(assets)+'. OpenCode settings and API keys are unchanged.')
+
 def main(argv=None):
-    parser=argparse.ArgumentParser();parser.add_argument('command',choices=['plan','verify-assets','install','start','stop','check']);parser.add_argument('--settings',default=str(REPO/'settings.local.json'));parser.add_argument('--root');parser.add_argument('--skip-full-hash',action='store_true');parser.add_argument('--start',action='store_true');args=parser.parse_args(argv)
-    if args.command in ('start','stop','check'):
+    parser=argparse.ArgumentParser();parser.add_argument('command',choices=['plan','verify-assets','install','start','stop','check','rebind']);parser.add_argument('--settings',default=str(REPO/'settings.local.json'));parser.add_argument('--root');parser.add_argument('--assets');parser.add_argument('--skip-full-hash',action='store_true');parser.add_argument('--start',action='store_true');args=parser.parse_args(argv)
+    if args.command in ('start','stop','check','rebind'):
         if not args.root:parser.error('--root is required')
         root=Path(args.root).resolve()
-        if args.command=='start':start(root)
+        if args.command=='rebind':
+            if not args.assets:parser.error('--assets is required')
+            rebind(root,args.assets,not args.skip_full_hash)
+        elif args.command=='start':start(root)
         elif args.command=='stop':stop(root)
         else:print(json.dumps(health(root),indent=2))
         return

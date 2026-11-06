@@ -12,7 +12,7 @@ if(!$UseSettings){
  $s.python_exe=Ask '준비한 Python 실행 파일' $s.python_exe
  $s.cuda_dir=Ask 'CUDA DLL 폴더' $s.cuda_dir
  $s.install_root=Ask '설치 폴더' './runtime'
- $base=Ask '다운로드한 파일 폴더' './assets'
+ $base=Ask '다운로드한 파일 폴더' '../strata-assets'
  foreach($g in @('models','pack','mtp','engine','vision')){$s.paths.$g=Join-Path $base $g}
  if(Test-Path -LiteralPath (Join-Path $base 'prepared.json')){$prepared=Get-Content -LiteralPath (Join-Path $base 'prepared.json') -Raw|ConvertFrom-Json;$s.images=$prepared.images}
  $s.images=Yes '이미지 입력 사용 (CPU)' $s.images

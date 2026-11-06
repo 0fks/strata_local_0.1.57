@@ -2,7 +2,7 @@
 param([string]$AssetsPath,[switch]$Probe)
 $ErrorActionPreference='Stop'
 Set-Location -LiteralPath $PSScriptRoot
-if(!$AssetsPath){$AssetsPath=Read-Host '파일을 받을 폴더 [./assets]';if([string]::IsNullOrWhiteSpace($AssetsPath)){$AssetsPath='./assets'}}
+if(!$AssetsPath){$AssetsPath=Read-Host '파일을 받을 폴더 [../strata-assets]';if([string]::IsNullOrWhiteSpace($AssetsPath)){$AssetsPath='../strata-assets'}}
 $AssetsPath=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($AssetsPath)
 $root=[IO.Path]::GetFullPath($PSScriptRoot)
 if($AssetsPath -eq $root){throw '다운로드용 하위 폴더를 지정하세요. 예: ./assets'}
