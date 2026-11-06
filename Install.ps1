@@ -11,10 +11,16 @@ if(!$UseSettings){
  Write-Host '경로는 이 설정 파일이 있는 폴더를 기준으로 해석합니다. 기본값이 맞으면 Enter를 누르세요.'
  $s.python_exe=Ask '준비한 Python 실행 파일' $s.python_exe
  $s.cuda_dir=Ask 'CUDA DLL 폴더' $s.cuda_dir
- $s.install_root=Ask '설치 폴더' './runtime'
  $base=Ask '다운로드한 파일 폴더' '../strata-assets'
+ $quant=Ask '설치할 SC117 모델: IQ3_S / IQ3_XXS / IQ2_XS' 'IQ3_S'
+ $quant=$quant.ToUpperInvariant()
+ if($quant -notin @('IQ3_S','IQ3_XXS','IQ2_XS')){throw '모델 선택 오류'}
+ if(!$s.PSObject.Properties['quant']){$s|Add-Member -NotePropertyName quant -NotePropertyValue $quant}else{$s.quant=$quant}
+ $runtimeDefault=if($quant -eq 'IQ3_S'){'./runtime'}else{'./runtime-'+$quant}
+ $s.install_root=Ask '설치 폴더 (모델마다 별도 폴더)' $runtimeDefault
  foreach($g in @('models','pack','mtp','engine','vision')){$s.paths.$g=Join-Path $base $g}
- if(Test-Path -LiteralPath (Join-Path $base 'prepared.json')){$prepared=Get-Content -LiteralPath (Join-Path $base 'prepared.json') -Raw|ConvertFrom-Json;$s.images=$prepared.images}
+ if($quant -ne 'IQ3_S'){foreach($g in @('models','pack')){$s.paths.$g=Join-Path $s.paths.$g $quant}}
+ if(Test-Path -LiteralPath (Join-Path $base 'prepared.json')){$prepared=Get-Content -LiteralPath (Join-Path $base 'prepared.json') -Raw|ConvertFrom-Json;$s.images=$prepared.images;if($prepared.available_quants -and $quant -notin $prepared.available_quants){throw '선택한 모델이 준비되지 않았습니다. Prepare-Models.cmd에서 추가로 준비하세요.'}}
  $s.images=Yes '이미지 입력 사용 (CPU)' $s.images
  $ctx=Ask '컨텍스트 64 / 128 / 192 / 256 (검증값 192)' '192';if($ctx -notin @('64','128','192','256')){throw '컨텍스트 선택 오류'};$s.context=[int]$ctx*1024
  $s.lan=Yes '다른 LAN PC에서 접속 허용' $false;$s.advertise_host=''

@@ -15,6 +15,16 @@ class DeploymentTests(unittest.TestCase):
   manifest=d.read(d.REPO/'manifests/assets.json');models=[x for x in manifest['files'] if x['group']=='models'];self.assertEqual(len(models),2);self.assertEqual(len(manifest['files']),24)
   self.assertEqual(manifest['model_repo'],'SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF')
   c=d.server_config(self.s,self.s['paths'],self.keys,self.root/'runtime');self.assertIn('00001-of-00002.gguf',c['args'][c['args'].index('--native')+1]);self.assertIn('00002-of-00002.gguf',c['args'][c['args'].index('--ple-gguf')+1]);self.assertIn('sc117-iq3_s',c['model_name']);self.assertEqual(c['port'],18765)
+ def test_each_sc117_quant_generates_matching_server_and_client(self):
+  ids=[]
+  for quant in d.QUANTS:
+   self.s['quant']=quant;self.s['paths']=d.asset_paths(self.root,quant)
+   c=d.server_config(self.s,self.s['paths'],self.keys,self.root/'runtime');client=d.opencode(self.s,'http://127.0.0.1:18765',self.keys[0]);ids.append(c['model_name'])
+   self.assertIn('-'+quant+'-',c['args'][c['args'].index('--native')+1]);self.assertEqual(client['model'],'strata/'+c['model_name']);self.assertEqual(c['port'],18765)
+  self.assertEqual(len(set(ids)),3)
+ def test_invalid_quant_rejected(self):
+  self.s['quant']='UD-IQ3_XXS'
+  with self.assertRaises(ValueError):d.validate(self.s)
  def test_invalid_context_rejected(self):
   self.s['context']=192
   with self.assertRaises(ValueError):d.validate(self.s)
@@ -42,6 +52,10 @@ class DeploymentTests(unittest.TestCase):
   root,old=self.rebind_fixture();client=(root/'clients/Local/opencode.json').read_bytes();sock=MagicMock();sock.__enter__.return_value.connect_ex.return_value=1
   with patch.object(d,'verify_assets',return_value=0),patch.object(d.socket,'socket',return_value=sock):d.rebind(root,self.root/'new assets',False)
   new=d.read(root/'server.json');self.assertEqual(new['api_key'],old['api_key']);self.assertEqual(new['model_name'],old['model_name']);self.assertEqual(new['sampling'],old['sampling']);self.assertEqual(new['args'][-2:],old['args'][-2:]);self.assertEqual(client,(root/'clients/Local/opencode.json').read_bytes());self.assertTrue(Path(new['exe']).is_relative_to((self.root/'new assets').resolve()));self.assertEqual(len(list(root.glob('server.json.before-path-change-*'))),1)
+ def test_rebind_preserves_extra_quant_subfolders(self):
+  self.s['quant']='IQ3_XXS';self.s['paths']=d.asset_paths(self.root,'IQ3_XXS');root,old=self.rebind_fixture();sock=MagicMock();sock.__enter__.return_value.connect_ex.return_value=1
+  with patch.object(d,'verify_assets',return_value=0),patch.object(d.socket,'socket',return_value=sock):d.rebind(root,self.root/'moved assets',False)
+  new=d.read(root/'server.json');self.assertIn(str(Path('models')/'IQ3_XXS'),new['args'][new['args'].index('--native')+1]);self.assertIn('iq3_xxs',new['model_name']);self.assertEqual(new['api_key'],old['api_key'])
  def test_rebind_rejects_running_owned_server(self):
   root,old=self.rebind_fixture();d.save(root/'server-process.private.json',{'pid':123,'creation':777});before=(root/'server.json').read_bytes()
   with patch.object(d,'stamp',return_value=777):

@@ -1,31 +1,41 @@
-# SC117 다운로드 파일
+# SC117 모델 파일과 저장 구조
 
-Prepare-Models.cmd가 아래 파일을 받고 pack·MTP를 생성합니다. 기본 다운로드 폴더는 clone 폴더 밖의 ../strata-assets이며 다른 드라이브의 폴더도 지정할 수 있습니다.
+모든 모델은 SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF의 revision eec4e10a2c29b440a2ae85591fa11569ce752963에 고정합니다. Unsloth는 포함하지 않습니다.
 
 ```text
 strata-assets/
-  models/   SC117 IQ3_S GGUF 2개 (83.86GB)
-  pack/     검증된 GGUF에서 자동 생성 (약 1.55GB)
-  mtp/      필요한 원본 텐서를 받아 자동 생성 (약 0.82GB)
-  vision/   이미지 인코더 (이미지 사용 시 약 0.91GB)
-  engine/   Strata 0.1.57 실행 프로그램 (약 0.97GB)
+  models/             IQ3_S GGUF 2개
+    IQ3_XXS/          IQ3_XXS GGUF 2개
+    IQ2_XS/           IQ2_XS GGUF 2개 (선택)
+  pack/               IQ3_S 실행용 pack
+    IQ3_XXS/          IQ3_XXS pack
+    IQ2_XS/           IQ2_XS pack (선택)
+  mtp/                공통 MTP 실행 파일 4개
+  vision/             공통 이미지 인코더 (선택)
+  engine/             공통 Strata 0.1.57 엔진
+  prepared.json       준비된 모델 목록
 ```
 
-모델 저장소: SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF
+IQ3_S의 기존 폴더 구조는 유지합니다. Install.cmd에는 최상위 strata-assets 폴더를 지정하고 모델을 선택하세요. 각 모델 폴더를 따로 지정하지 않습니다.
 
-필요한 모델 파일:
-- Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_S-00001-of-00002.gguf
-- Qwen3.8-Flash-Next-GSQ-RCO-abliterated-IQ3_S-00002-of-00002.gguf
+모델 파일명 형식:
+`Qwen3.8-Flash-Next-GSQ-RCO-abliterated-{양자화}-00001-of-00002.gguf`
+`Qwen3.8-Flash-Next-GSQ-RCO-abliterated-{양자화}-00002-of-00002.gguf`
 
-이미지 파일: mmproj-Qwen3.8-Flash-Next-BF16.gguf
+| 양자화 | GGUF 합계 |
+| --- | ---: |
+| IQ3_S | 83.8636GB |
+| IQ3_XXS | 76.1423GB |
+| IQ2_XS | 68.4652GB |
 
-GGUF·이미지 인코더는 Hugging Face에서 받습니다. revision eec4e10a2c29b440a2ae85591fa11569ce752963에 고정하며 크기·SHA-256을 검사합니다.
+이미지 인코더: mmproj-Qwen3.8-Flash-Next-BF16.gguf (0.9075GB)
 
-MTP는 ModelScope의 Qwen/Qwen3.8-Flash-Next에서 필요한 텐서만 받아 검증·변환합니다. 전체 safetensors를 다운로드하지 않습니다.
+MTP: 같은 저장소 strata/rt의 dense.bin, dense.txt, experts.bin, draft_vocab.bin (총 0.8243GB). 검증된 실행용 파일을 직접 받으므로 원본 safetensors나 ModelScope가 필요하지 않습니다.
 
-엔진 파일: strata-engine-0.1.57-windows-x86_64-cuda-cuda13.tar.gz
-GitHub Niko1221/Strata의 v0.2.11 릴리스에서 받고 고정 해시를 검사합니다.
+엔진: GitHub Niko1221/Strata v0.2.11의 strata-engine-0.1.57-windows-x86_64-cuda-cuda13.tar.gz. 다운로드 약 628MB, 압축 해제 약 970MB.
 
-외부 PC의 NVMe에 준비할 때에는 Files ready가 나올 때까지 기다린 뒤 NVMe를 옮기세요. 대상 PC의 Install.cmd에서 실제 assets 경로를 지정하면 됩니다. 드라이브 문자가 달라져도 됩니다.
+모든 외부 바이너리는 고정 크기·SHA-256으로 검사합니다. IQ3_S pack은 기존 고정 해시로 검사합니다. 추가 모델의 pack은 각 모델의 검증된 GGUF에서 생성하고 원본 모델 정보 및 생성 파일 해시를 pack-manifest.json에 기록합니다. 이후 설치와 경로 변경에서도 검사합니다.
 
-Unsloth의 GGUF나 pack은 이 SC117 프로필과 호환되지 않습니다. 기존 파일을 자동 삭제하지 않으므로 다른 모델을 받던 폴더와 구분해 준비하세요.
+공통 엔진·MTP·이미지는 한 번만 저장합니다. 모델 2번 조각의 내용이 같더라도 각 양자화의 파일명으로 따로 저장합니다. 특정 파일시스템의 링크 기능에 의존하지 않으므로 일반적인 NVMe 폴더 복사로 옮길 수 있습니다. 용량 계산에도 이 중복 저장을 포함합니다.
+
+준비된 이미지 포함 예상 총량: 2종 165.8GB, IQ2_XS 포함 3종 235.8GB. 모델별 pack은 약 1.55GB로 계산한 예상값입니다. 준비용 Python 환경과 임시 공간은 별도입니다.

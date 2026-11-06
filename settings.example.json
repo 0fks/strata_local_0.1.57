@@ -17,5 +17,6 @@
   "copy_assets": false,
   "merge_opencode": false,
   "shortcuts": true,
-  "startup": false
+  "startup": false,
+  "quant": "IQ3_S"
 }

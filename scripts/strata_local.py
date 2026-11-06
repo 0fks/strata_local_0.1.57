@@ -19,6 +19,7 @@ def inside(root,relative):
     if not p.is_relative_to(root):raise ValueError('Path escapes asset root: '+relative)
     return p
 def validate(s):
+    quant_of(s)
     if type(s.get('context')) is not int or s['context'] not in CONTEXTS:raise ValueError('Choose context 65536/131072/196608/262144')
     if type(s.get('port')) is not int or not 1024<=s['port']<=65535:raise ValueError('Port must be 1024..65535')
     for k in ('images','lan','copy_assets','merge_opencode','shortcuts','startup'):
@@ -33,10 +34,48 @@ def validate(s):
     target=Path(s['install_root']).resolve()
     if target==REPO or any(target.is_relative_to(REPO/n) for n in ('vendor','scripts','docs','tests','manifests','.git')):raise ValueError('Choose a separate runtime folder, not source/documentation folders')
     return s
-def items(s):return [x for x in read(REPO/'manifests/assets.json')['files'] if s['images'] or x['group']!='vision']
+QUANTS=('IQ3_S','IQ3_XXS','IQ2_XS')
+
+def quant_of(s):
+    quant=s.get('quant','IQ3_S')
+    if quant not in QUANTS:raise ValueError('Choose SC117 IQ3_S, IQ3_XXS or IQ2_XS')
+    return quant
+
+def asset_paths(assets,quant):
+    if quant not in QUANTS:raise ValueError('Unknown SC117 quant')
+    paths={g:str(Path(assets)/g) for g in ('models','pack','mtp','vision','engine')}
+    if quant!='IQ3_S':
+        for g in ('models','pack'):paths[g]=str(Path(paths[g])/quant)
+    return paths
+
+def catalog(quant):
+    if quant not in QUANTS:raise ValueError('Unknown SC117 quant')
+    base=read(REPO/'manifests/assets.json')
+    if quant=='IQ3_S':return base
+    quants=read(REPO/'manifests/sc117-quants.json')
+    base['files']=quants['models'][quant]+[x for x in base['files'] if x['group'] not in ('models','pack')]
+    return base
+
+def base_items(s):return [x for x in catalog(quant_of(s))['files'] if s['images'] or x['group']!='vision']
+
+def pack_items(folder,quant):
+    receipt=read(Path(folder)/'pack-manifest.json');pins=[x for x in catalog(quant)['files'] if x['group']=='models']
+    if receipt.get('profile')!='SC117-'+quant or receipt.get('sources')!=pins:raise ValueError('Pack belongs to a different model; run Prepare-Models.cmd')
+    files=receipt.get('files',[]);expected=set(read(REPO/'manifests/sc117-quants.json')['generated_pack_files'])
+    if len(files)!=len(expected) or {x['path'] for x in files}!=expected:raise ValueError('Incomplete generated pack manifest')
+    for x in files:
+        if x.get('group')!='pack' or type(x.get('bytes')) is not int or x['bytes']<=0 or len(x.get('sha256',''))!=64 or any(c not in '0123456789abcdef' for c in x['sha256']):raise ValueError('Invalid generated pack manifest')
+    return files
+
+def items(s):
+    quant=quant_of(s)
+    return base_items(s)+(pack_items(s['paths']['pack'],quant) if quant!='IQ3_S' else [])
+
 def verify_assets(s,full=True):
     errors=[]
-    for x in items(s):
+    try:checked=items(s)
+    except (OSError,ValueError,KeyError,TypeError) as exc:errors.append('Pack not ready: '+str(exc));checked=base_items(s)
+    for x in checked:
         p=inside(s['paths'][x['group']],x['path'])
         if not p.is_file():errors.append('Missing: '+str(p));continue
         if p.stat().st_size!=x['bytes']:errors.append('Size mismatch: '+str(p));continue
@@ -56,18 +95,18 @@ def load_settings(path):
         q=Path(s[k]);s[k]=str((path.parent/q).resolve()) if not q.is_absolute() else str(q.resolve())
     s['paths']={k:str((path.parent/Path(v)).resolve()) if not Path(v).is_absolute() else str(Path(v).resolve()) for k,v in s['paths'].items()}
     return s
-def model_id(s):return MODEL+('-cpu-vision-' if s['images'] else '-text-')+str(s['context']//1024)+'k'
+def model_id(s):return 'qwen3.8-flash-next-sc117-'+quant_of(s).lower()+('-cpu-vision-' if s['images'] else '-text-')+str(s['context']//1024)+'k'
 def server_config(s,paths,keys,root):
-    model1=next(x['path'] for x in items(s) if x['group']=='models' and '00001-of' in x['path'])
-    model2=next(x['path'] for x in items(s) if x['group']=='models' and '00002-of' in x['path'])
+    model1=next(x['path'] for x in base_items(s) if x['group']=='models' and '00001-of' in x['path'])
+    model2=next(x['path'] for x in base_items(s) if x['group']=='models' and '00002-of' in x['path'])
     a=['--pack',paths['pack'],'--native',str(Path(paths['models'])/model1),'--ple-gguf',str(Path(paths['models'])/model2),'--expert-profile',str(root/'source/data/expert-profile.bin'),'--expert-cache','auto','--prefill','auto:8192','--spec','4','--spec-min-p','0.5','--mtp',paths['mtp'],'--max-context',str(s['context']),'--kv','int8','--kv-resident','16384','--resident-budget-gib','48','--vram-reserve-mib','1800','--pool-workers','7']
     c={'exe':str(Path(paths['engine'])/'strata.exe'),'args':a,'cwd':str(root/'source'),'tokenizer':str(Path(paths['pack'])/'tokenizer'),'model_name':model_id(s),'log':str(root/'logs/engine.log'),'lib_dirs':[paths['engine'],s['cuda_dir']],'host':'0.0.0.0' if s['lan'] else '127.0.0.1','port':s['port'],'gpu':0,'gpus_asked':True,'fit_max_tokens':True,'api_key':keys,'drafting':'mtp','env':{'STRATA_PLE_AUTO_RAM':'0'},'sampling':{'temperature':0,'top_p':1.0,'top_k':64,'min_p':0,'repetition_penalty':1.0,'presence_penalty':0,'frequency_penalty':0}}
     if s['images']:
-        a+=['--vision'];mm=next(x['path'] for x in items(s) if x['group']=='vision');c['vision']={'exe':str(Path(paths['engine'])/'strata-vision.exe'),'mmproj':str(Path(paths['vision'])/mm),'model':str(Path(paths['models'])/model1),'gpu':False,'threads':8,'max_tokens':1024}
+        a+=['--vision'];mm=next(x['path'] for x in base_items(s) if x['group']=='vision');c['vision']={'exe':str(Path(paths['engine'])/'strata-vision.exe'),'mmproj':str(Path(paths['vision'])/mm),'model':str(Path(paths['models'])/model1),'gpu':False,'threads':8,'max_tokens':1024}
     return c
 def opencode(s,url,key):
     mid=model_id(s)
-    return {'$schema':'https://opencode.ai/config.json','model':'strata/'+mid,'providers':{'strata':{'package':'@opencode/ai/providers/openai-compatible','name':'Strata Local '+str(s['context']//1024)+'K','settings':{'baseURL':url+'/v1','apiKey':key},'models':{mid:{'name':'SC117 IQ3_S '+('CPU Vision ' if s['images'] else 'Text ')+str(s['context']//1024)+'K','capabilities':{'input':['text','image'] if s['images'] else ['text'],'output':['text'],'tools':True},'compatibility':{'reasoningField':'reasoning_content'},'limit':{'context':s['context'],'output':16384}}}}},'compaction':{'auto':True,'buffer':24576,'keep':{'tokens':8000}}}
+    return {'$schema':'https://opencode.ai/config.json','model':'strata/'+mid,'providers':{'strata':{'package':'@opencode/ai/providers/openai-compatible','name':'Strata Local '+str(s['context']//1024)+'K','settings':{'baseURL':url+'/v1','apiKey':key},'models':{mid:{'name':'SC117 '+quant_of(s)+' '+('CPU Vision ' if s['images'] else 'Text ')+str(s['context']//1024)+'K','capabilities':{'input':['text','image'] if s['images'] else ['text'],'output':['text'],'tools':True},'compatibility':{'reasoningField':'reasoning_content'},'limit':{'context':s['context'],'output':16384}}}}},'compaction':{'auto':True,'buffer':24576,'keep':{'tokens':8000}}}
 def merge_opencode(path,new):
     path=Path(path);old=read(path) if path.exists() else {}
     if path.exists():shutil.copy2(path,path.with_name(path.name+'.strata-backup-'+datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')))
@@ -103,6 +142,7 @@ def install(s,quick=False):
         paths={g:str(root/'assets'/g) for g in s['paths']}
         for x in items(s):
             dest=inside(paths[x['group']],x['path']);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(inside(s['paths'][x['group']],x['path']),dest)
+        if quant_of(s)!='IQ3_S':shutil.copy2(Path(s['paths']['pack'])/'pack-manifest.json',Path(paths['pack'])/'pack-manifest.json')
         copied=dict(s,paths=paths);verify_assets(copied,not quick)
     invoke([s['python_exe'],'-m','venv',root/'.venv']);py=root/'.venv/Scripts/python.exe'
     pip=[py,'-m','pip','install','-r',root/'source/requirements.txt']
@@ -121,7 +161,7 @@ def shortcuts(root,s):
     # Use an env variable, not interpolation, to safely pass a path containing quotes or spaces.
     code="$w=New-Object -ComObject WScript.Shell;$r=$env:STRATA_LOCAL_SHORTCUT_ROOT;"
     if s['shortcuts']:
-        for name,target in [('Strata Local Start','Start-Strata.cmd'),('Strata Local Stop','Stop-Strata.cmd')]:
+        for name,target in [('Strata Local '+quant_of(s)+' Start','Start-Strata.cmd'),('Strata Local '+quant_of(s)+' Stop','Stop-Strata.cmd')]:
             code+="$l=$w.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) '"+name+".lnk'));$l.TargetPath=Join-Path $r '"+target+"';$l.WorkingDirectory=$r;$l.IconLocation=\"$env:SystemRoot\\System32\\shell32.dll,0\";$l.Save();"
     if s['startup']:code+="$l=$w.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Startup')) 'Strata Local Start.lnk'));$l.TargetPath=Join-Path $r 'Start-Strata.cmd';$l.WorkingDirectory=$r;$l.Save();"
     invoke(['powershell.exe','-NoProfile','-Command',code],env=dict(os.environ,STRATA_LOCAL_SHORTCUT_ROOT=str(root)))
@@ -181,7 +221,7 @@ def rebind(root,assets,full=True):
         if st.get('creation') is not None and stamp(st['pid'])==st['creation']:raise ValueError('Stop Strata before changing asset paths')
     with socket.socket() as sock:
         if sock.connect_ex(('127.0.0.1',old['port']))==0:raise ValueError('API port is active. Stop the service first; nothing changed.')
-    settings=dict(meta['settings']);paths={g:str(assets/g) for g in settings['paths']};settings['paths']=paths
+    settings=dict(meta['settings']);paths=asset_paths(assets,quant_of(settings));settings['paths']=paths
     verify_assets(settings,full)
     replacement=server_config(settings,paths,old['api_key'],root)
     new=dict(old);args=list(old['args'])

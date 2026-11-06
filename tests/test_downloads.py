@@ -25,6 +25,22 @@ class DownloadTests(unittest.TestCase):
   with tarfile.open(archive,'w:gz') as tf:
    member=tarfile.TarInfo('../escape');member.size=1;tf.addfile(member,io.BytesIO(b'x'))
   with self.assertRaises(ValueError):p.safe_unpack(archive,self.root/'out',100)
+ def test_sc117_bundle_shares_assets_and_keeps_quants_separate(self):
+  quants=['IQ3_S','IQ3_XXS','IQ2_XS'];entries=p.download_entries(self.root,quants,True,'https://huggingface.co')
+  self.assertEqual(sum(x['group']=='models' for u,x,target in entries),6);self.assertEqual(sum(x['group']=='mtp' for u,x,target in entries),4);self.assertEqual(sum(x['group']=='vision' for u,x,target in entries),1)
+  self.assertEqual(len({target for u,x,target in entries}),len(entries))
+  for u,x,target in entries:
+   self.assertIn('SC117/',u);self.assertNotIn('unsloth',u.lower());self.assertTrue(target.is_relative_to(self.root.resolve()))
+  self.assertEqual(p.bundle_size(quants)-p.bundle_size(quants[:2]),68465153504+1548226110)
+ def test_generated_pack_receipt_catches_corruption_and_wrong_quant(self):
+  quant='IQ3_XXS';folder=Path(p.deploy.asset_paths(self.root,quant)['pack']);files=[]
+  for name in p.deploy.read(p.ROOT/'manifests/sc117-quants.json')['generated_pack_files']:
+   f=folder/name;f.parent.mkdir(parents=True,exist_ok=True);f.write_bytes(DATA);files.append({'group':'pack','path':name,'bytes':len(DATA),'sha256':hashlib.sha256(DATA).hexdigest()})
+  receipt={'profile':'SC117-'+quant,'sources':[x for x in p.deploy.catalog(quant)['files'] if x['group']=='models'],'files':files};p.deploy.save(folder/'pack-manifest.json',receipt)
+  self.assertTrue(p.group_ok('pack',self.root,p.deploy.catalog(quant)['files'],quant))
+  (folder/'dense.bin').write_bytes(b'x'*len(DATA));self.assertFalse(p.group_ok('pack',self.root,p.deploy.catalog(quant)['files'],quant))
+  receipt['profile']='SC117-IQ2_XS';p.deploy.save(folder/'pack-manifest.json',receipt)
+  with self.assertRaises(ValueError):p.deploy.pack_items(folder,quant)
  def test_safe_source_url_does_not_log_credentials(self):
   text=p.safe_url('https://user:password@example.test:8443/model.gguf?token=secret')
   self.assertEqual(text,'https://example.test:8443/model.gguf');self.assertNotIn('password',text);self.assertNotIn('secret',text)

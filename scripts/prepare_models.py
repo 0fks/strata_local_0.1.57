@@ -30,7 +30,9 @@ def network_error(exc):
  reason=getattr(exc,'reason',exc)
  return type(reason).__name__+' (code '+str(getattr(reason,'winerror',None) or getattr(reason,'errno',None) or 'unknown')+')'
 
-def model_url(host,group,name):return host.rstrip('/')+'/'+MODEL_REPO+'/resolve/'+REV+'/'+('IQ3_S/' if group=='models' else '')+quote(name)
+def model_url(host,group,name,quant='IQ3_S'):
+ prefix=quant+'/' if group=='models' else ('strata/rt/' if group=='mtp' else '')
+ return host.rstrip('/')+'/'+MODEL_REPO+'/resolve/'+REV+'/'+prefix+quote(name)
 def fetch(url,target,size,sha):
  target=Path(target);target.parent.mkdir(parents=True,exist_ok=True)
  if target.exists():
@@ -77,12 +79,33 @@ def safe_unpack(archive,destination,max_bytes):
    if not m.isfile():raise ValueError('Links/devices are not accepted in engine archive')
    p.parent.mkdir(parents=True,exist_ok=True)
    with tf.extractfile(m) as src,p.open('wb') as out:shutil.copyfileobj(src,out)
-def group_ok(group,assets,manifest):
+def group_ok(group,assets,manifest,quant='IQ3_S'):
+ paths=deploy.asset_paths(assets,quant)
+ if group=='pack' and quant!='IQ3_S':
+  try:manifest=deploy.pack_items(paths['pack'],quant)
+  except (OSError,ValueError,KeyError,TypeError):return False
  for item in manifest:
   if item['group']!=group:continue
-  p=deploy.inside(assets/group,item['path'])
+  p=deploy.inside(paths[group],item['path'])
   if not p.is_file() or p.stat().st_size!=item['bytes'] or deploy.digest(p)!=item['sha256']:return False
  return True
+
+def download_entries(assets,quants,images,host):
+ entries=[];seen=set()
+ for quant in quants:
+  paths=deploy.asset_paths(assets,quant)
+  for item in deploy.catalog(quant)['files']:
+   if item['group'] not in ('models','vision','mtp') or (item['group']=='vision' and not images):continue
+   target=deploy.inside(paths[item['group']],item['path'])
+   if target in seen:continue
+   seen.add(target);entries.append((model_url(host,item['group'],item['path'],quant),item,target))
+ return entries
+
+def bundle_size(quants,images=True):
+ shared=sum(x['bytes'] for x in deploy.catalog('IQ3_S')['files'] if x['group'] in ('mtp','engine','vision') and (images or x['group']!='vision'))
+ pack=deploy.read(ROOT/'manifests/sc117-quants.json')['estimated_pack_bytes']
+ return shared+sum(sum(x['bytes'] for x in deploy.catalog(q)['files'] if x['group']=='models')+pack for q in quants)
+
 def probe(url,size=None,range_probe=False):
  print('Checking: '+safe_url(url),flush=True)
  headers={'User-Agent':'strata_local/1'}
@@ -97,16 +120,20 @@ def probe(url,size=None,range_probe=False):
   if size is not None and actual!=size:raise ValueError('Remote size differs from pinned manifest')
   print(json.dumps({'url':safe_url(url),'status':r.status,'bytes':length}),flush=True)
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--assets',default='../strata-assets');ap.add_argument('--no-images',action='store_true');ap.add_argument('--mirror',default='https://huggingface.co');ap.add_argument('--modelscope',default='https://www.modelscope.cn');ap.add_argument('--probe',action='store_true');ap.add_argument('--proxy');ap.add_argument('--timeout',type=int,default=25);a=ap.parse_args()
+ ap=argparse.ArgumentParser()
+ ap.add_argument('--assets',default='../strata-assets');ap.add_argument('--quants',nargs='+',choices=deploy.QUANTS,default=['IQ3_S','IQ3_XXS']);ap.add_argument('--no-images',action='store_true');ap.add_argument('--mirror',default='https://huggingface.co');ap.add_argument('--probe',action='store_true');ap.add_argument('--plan',action='store_true');ap.add_argument('--proxy');ap.add_argument('--timeout',type=int,default=25);a=ap.parse_args()
  global CONNECT_TIMEOUT,PROXY
  if not 5<=a.timeout<=600:raise ValueError('timeout must be 5..600 seconds')
  CONNECT_TIMEOUT=a.timeout;PROXY=a.proxy
  if PROXY and urlsplit(PROXY).scheme not in ('http','https'):raise ValueError('Proxy must be an HTTP/HTTPS proxy URL')
- assets=Path(a.assets).resolve()
- if assets==ROOT or any(assets.is_relative_to(ROOT/n) for n in ('vendor','scripts','docs','tests','manifests','.git','prereqs')):raise ValueError('Choose a separate assets folder, such as ./assets')
- images=not a.no_images;manifest=deploy.read(ROOT/'manifests/assets.json')['files'];version=deploy.read(ROOT/'manifests/versions.json')
- downloads=[(model_url(a.mirror,x['group'],x['path']),x) for x in manifest if x['group']=='models' or (images and x['group']=='vision')]
- index_url=a.modelscope.rstrip('/')+'/models/Qwen/Qwen3.8-Flash-Next/resolve/master/model.safetensors.index.json'
+ assets=Path(a.assets).resolve();quants=list(dict.fromkeys(a.quants));images=not a.no_images
+ if assets==ROOT or any(assets.is_relative_to(ROOT/n) for n in ('vendor','scripts','docs','tests','manifests','.git','prereqs')):raise ValueError('Choose a separate assets folder')
+ version=deploy.read(ROOT/'manifests/versions.json');manifest=deploy.catalog('IQ3_S')['files'];downloads=download_entries(assets,quants,images,a.mirror)
+ estimate=bundle_size(quants,images)
+ print('SC117 models: '+', '.join(quants),flush=True)
+ print('Estimated prepared assets: %.2f GB / %.2f GiB (pack size estimated); preparation environment needs extra space.'%(estimate/1e9,estimate/1024**3),flush=True)
+ if a.plan:
+  print(json.dumps({'quants':quants,'estimated_asset_bytes':estimate,'shared_groups':['mtp','vision','engine'],'paths':{q:deploy.asset_paths(assets,q) for q in quants}},indent=2));return
  if a.probe:
   failures=[]
   def check(label,fn):
@@ -114,45 +141,53 @@ def main():
    except Exception as exc:
     detail=network_error(exc) if isinstance(exc,(OSError,TimeoutError)) else str(exc)
     failures.append(label);print('FAIL: '+label+' | host='+LAST_HOST+' | '+detail,flush=True)
-  for u,x in downloads:check(x['path'],lambda u=u,x=x:probe(u,x['bytes'],range_probe=True))
+  for u,x,target in downloads:check(x['path'],lambda u=u,x=x:probe(u,x['bytes'],range_probe=True))
   check('GitHub engine',lambda:probe(version['engine_url']))
-  def check_mtp():
-   with open_url(Request(index_url,headers={'User-Agent':'strata_local/1'})) as r:index=json.load(r)
-   weight=next(v for k,v in index['weight_map'].items() if k.startswith('mtp.'))
-   probe(a.modelscope.rstrip('/')+'/models/Qwen/Qwen3.8-Flash-Next/resolve/master/'+weight,range_probe=True)
-  check('ModelScope MTP',check_mtp)
-  if failures:raise RuntimeError('Connection checks failed: '+', '.join(failures)+'. No model weights were downloaded. Share the FAIL lines; do not reinstall Python/CUDA for a network timeout.')
+  if failures:raise RuntimeError('Connection checks failed: '+', '.join(failures)+'. No model weights were downloaded.')
   print('Source probe passed. Model weights were not downloaded.');return
  if sys.version_info[:2]!=(3,11):raise ValueError('Python 3.11 required')
  assets.mkdir(parents=True,exist_ok=True);(assets/'.gitignore').write_text('*\n!.gitignore\n',encoding='utf-8')
- need=6*1024**3
- for item in manifest:
-  if item['group']=='vision' and not images:continue
-  f=assets/item['group']/item['path'];part=f.with_name(f.name+'.part');have=f.stat().st_size if f.is_file() else (part.stat().st_size if part.is_file() else 0);need+=max(0,item['bytes']-have)
- if shutil.disk_usage(assets).free<need:raise ValueError('Insufficient free space for downloads and preparation; need about '+str(round(need/1024**3,1))+' GiB more')
- print('STEP 1/4: GGUF model files'+(' and image encoder' if images else ''),flush=True)
- for u,x in downloads:fetch(u,assets/x['group']/x['path'],x['bytes'],x['sha256'])
+ need=8*1024**3
+ for u,x,f in downloads:
+  part=f.with_name(f.name+'.part');have=f.stat().st_size if f.is_file() else (part.stat().st_size if part.is_file() else 0);need+=max(0,x['bytes']-have)
+ if not group_ok('engine',assets,manifest):need+=970245089
+ for q in quants:
+  if not group_ok('pack',assets,deploy.catalog(q)['files'],q):need+=deploy.read(ROOT/'manifests/sc117-quants.json')['estimated_pack_bytes']
+ if shutil.disk_usage(assets).free<need:raise ValueError('Insufficient free space; need about %.1f GiB more'%(need/1024**3))
+ print('STEP 1/3: GGUF files, shared image encoder and ready-to-use MTP',flush=True)
+ for u,x,target in downloads:fetch(u,target,x['bytes'],x['sha256'])
  work=assets/'_work';work.mkdir(exist_ok=True)
- print('STEP 2/4: Engine',flush=True)
+ print('STEP 2/3: Shared engine',flush=True)
  if not group_ok('engine',assets,manifest):
   archive=work/'engine.tar.gz';fetch(version['engine_url'],archive,627812560,version['engine_archive_sha256']);safe_unpack(archive,assets/'engine',970245089)
-  print('STEP 2/4: Engine',flush=True)
  if not group_ok('engine',assets,manifest):raise ValueError('Engine file verification failed')
- env=dict(os.environ,HF_ENDPOINT=a.mirror,STRATA_SOURCE='modelscope',MODELSCOPE_ENDPOINT=a.modelscope,STRATA_GGUF_PY=str(ROOT/'vendor/llama.cpp/gguf-py'))
+ env=dict(os.environ,STRATA_GGUF_PY=str(ROOT/'vendor/llama.cpp/gguf-py'))
  if a.proxy:env.update(HTTPS_PROXY=a.proxy,HTTP_PROXY=a.proxy)
- def run(tool,*args):subprocess.run([sys.executable,str(ROOT/'vendor/strata/tools'/tool),*map(str,args)],check=True,env=env)
- print('STEP 3/4: Prepare model pack',flush=True)
- if not group_ok('pack',assets,manifest):
-  shard=next(x['path'] for x in manifest if x['group']=='models' and '00001-of' in x['path']);run('iq_pack.py','--gguf',assets/'models'/shard,'--out',assets/'pack','--compat-bf16')
- print('STEP 4/4: Prepare MTP from ModelScope',flush=True)
- if not group_ok('mtp',assets,manifest):
-  mtp=work/'mtp';run('mtp_fetch.py','fetch','--out',mtp);run('mtp_fetch.py','verify','--out',mtp);run('mtp_pack.py','--src',mtp,'--experts','q2_0','--out',mtp/'mtp-q2_0.gguf');run('mtp_rt.py','--gguf',mtp/'mtp-q2_0.gguf','--out',assets/'mtp');shutil.copy2(ROOT/'vendor/strata/data/draft_vocab.bin',assets/'mtp/draft_vocab.bin')
- for g in ['models','pack','mtp','engine']+(['vision'] if images else []):
-  if not group_ok(g,assets,manifest):raise ValueError('Final prepared asset verification failed: '+g)
- deploy.save(assets/'prepared.json',{'profile':'SC117-IQ3_S','images':images,'engine':'0.1.57'})
- # Remove only this tool's fixed work directory after complete validation.
+ for q in quants:
+  print('STEP 3/3: Prepare pack - '+q,flush=True);catalog=deploy.catalog(q);files=catalog['files'];paths=deploy.asset_paths(assets,q)
+  if not group_ok('pack',assets,files,q):
+   # Recreate known outputs to avoid retaining another quant's tokenizer.
+   names=deploy.read(ROOT/'manifests/sc117-quants.json')['generated_pack_files']
+   for name in names+['pack-manifest.json']:deploy.inside(paths['pack'],name).unlink(missing_ok=True)
+   shard=next(x['path'] for x in files if x['group']=='models' and '00001-of' in x['path'])
+   subprocess.run([sys.executable,str(ROOT/'vendor/strata/tools/iq_pack.py'),'--gguf',str(Path(paths['models'])/shard),'--out',paths['pack'],'--compat-bf16'],check=True,env=env)
+   if q!='IQ3_S':
+    generated=[]
+    for name in names:
+     f=deploy.inside(paths['pack'],name)
+     if not f.is_file() or not f.stat().st_size:raise ValueError('Missing generated pack file: '+name)
+     generated.append({'group':'pack','path':name,'bytes':f.stat().st_size,'sha256':deploy.digest(f)})
+    deploy.save(Path(paths['pack'])/'pack-manifest.json',{'profile':'SC117-'+q,'sources':[x for x in files if x['group']=='models'],'files':generated})
+  for g in ['models','pack','mtp','engine']+(['vision'] if images else []):
+   if not group_ok(g,assets,files,q):raise ValueError('Final prepared asset verification failed: '+q+'/'+g)
+  deploy.save(Path(paths['pack'])/'prepared.json',{'profile':'SC117-'+q,'quant':q,'images':images,'engine':'0.1.57'})
+ old=deploy.read(assets/'prepared.json') if (assets/'prepared.json').is_file() else {}
+ available=set(old.get('available_quants',[]))|set(quants)
+ # Do not claim a previously prepared profile is still valid after files were removed.
+ available=[q for q in deploy.QUANTS if q in available and group_ok('models',assets,deploy.catalog(q)['files'],q) and group_ok('pack',assets,deploy.catalog(q)['files'],q)]
+ deploy.save(assets/'prepared.json',{'profile':'SC117-bundle','available_quants':available,'images':images,'engine':'0.1.57'})
  if work.parent==assets and work.name=='_work':shutil.rmtree(work)
- print('Files ready. Run Install.cmd and choose: '+str(assets))
+ print('Files ready. Run Install.cmd, choose this folder and a quant: '+str(assets))
 if __name__=='__main__':
  try:main()
  except Exception as e:print('ERROR: '+str(e),file=sys.stderr);sys.exit(1)
