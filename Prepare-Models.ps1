@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$AssetsPath,[switch]$Probe,[string]$Mirror='https://hf-mirror.com',[string]$Proxy,[int]$Timeout=25)
+param([string]$AssetsPath,[switch]$Probe,[string]$Proxy,[int]$Timeout=25)
 $ErrorActionPreference='Stop'
 Set-Location -LiteralPath $PSScriptRoot
 if(!$AssetsPath){$AssetsPath=Read-Host '파일을 받을 폴더 [../strata-assets]';if([string]::IsNullOrWhiteSpace($AssetsPath)){$AssetsPath='../strata-assets'}}
@@ -10,19 +10,15 @@ foreach($n in @('vendor','scripts','docs','tests','manifests','.git','prereqs'))
 if(!$Probe){New-Item -ItemType Directory -Path $AssetsPath -Force|Out-Null;[IO.File]::WriteAllText((Join-Path $AssetsPath '.gitignore'),"*`n!.gitignore`n",[Text.UTF8Encoding]::new($false))}
 
 $images=Read-Host '이미지 입력 파일도 받기? (Y/N) [Y]'
-if($Mirror -eq 'https://hf-mirror.com'){
- $choice=Read-Host '모델 서버 1=hf-mirror, 2=Hugging Face 원본 [1]'
- if($choice -eq '2'){$Mirror='https://huggingface.co'}elseif($choice -and $choice -ne '1'){throw '1 또는 2를 선택하세요.'}
-}
 if(!$Proxy){$Proxy=Read-Host 'HTTP 프록시 주소 (사용하지 않으면 Enter)'}
-Write-Host '모델 페이지와 별개로 실제 파일은 Hugging Face CDN에 연결될 수 있습니다.'
+Write-Host 'Unsloth UD-IQ3_XXS v3.1 (4개 GGUF)를 ModelScope에서 다운로드합니다.'
 
 if($Probe){$py='py';$prefix=@('-3.11')}else{
  $venv=Join-Path $AssetsPath '.prepare-venv';$py=Join-Path $venv 'Scripts/python.exe'
  if(!(Test-Path -LiteralPath $py)){& py -3.11 -m venv $venv;if($LASTEXITCODE -ne 0){throw 'Python 3.11 x64를 먼저 직접 설치하세요.'}}
  & $py -m pip install -r (Join-Path $PSScriptRoot 'vendor/strata/requirements.txt');if($LASTEXITCODE -ne 0){throw '준비 패키지 설치 실패'};$prefix=@()
 }
-$call=@($prefix)+@((Join-Path $PSScriptRoot 'scripts/prepare_models.py'),'--assets',$AssetsPath,'--mirror',$Mirror,'--timeout',[string]$Timeout)
+$call=@($prefix)+@((Join-Path $PSScriptRoot 'scripts/prepare_models.py'),'--assets',$AssetsPath,'--timeout',[string]$Timeout)
 if($Proxy){$call+=@('--proxy',$Proxy)}
 if($images -match '^[Nn]$'){$call+='--no-images'}
 if($Probe){$call+='--probe'}

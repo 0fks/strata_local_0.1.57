@@ -19,7 +19,7 @@ if(!$UseSettings){
  $ctx=Ask '컨텍스트 64 / 128 / 192 / 256 (검증값 192)' '192';if($ctx -notin @('64','128','192','256')){throw '컨텍스트 선택 오류'};$s.context=[int]$ctx*1024
  $s.lan=Yes '다른 LAN PC에서 접속 허용' $false;$s.advertise_host=''
  if($s.lan){$ip='';try{$ip=(Get-NetIPConfiguration|Where-Object IPv4DefaultGateway|Select-Object -First 1).IPv4Address.IPAddress}catch{};$s.advertise_host=Ask '서버의 실제 LAN IP 또는 호스트명' $ip}
- $s.port=[int](Ask '포트' '8188');$s.copy_assets=$false
+ $s.port=[int](Ask '포트' '18765');$s.copy_assets=$false
  $s.merge_opencode=Yes '이 PC의 OpenCode 설정에 자동 병합 (MCP 보존·백업)' $true
  $s.shortcuts=Yes '바탕화면 시작·중지 바로가기 생성' $true
  $s.startup=Yes '로그인 시 자동 시작' $false

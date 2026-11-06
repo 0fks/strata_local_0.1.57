@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import URLError
 REPO=Path(__file__).resolve().parent.parent
-MODEL='qwen3.8-flash-next-sc117-iq3_s'
+MODEL='qwen3.8-flash-next-unsloth-ud-iq3_xxs-v31'
 CONTEXTS=(65536,131072,196608,262144)
 def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
 def save(p,obj):
@@ -33,10 +33,24 @@ def validate(s):
     target=Path(s['install_root']).resolve()
     if target==REPO or any(target.is_relative_to(REPO/n) for n in ('vendor','scripts','docs','tests','manifests','.git')):raise ValueError('Choose a separate runtime folder, not source/documentation folders')
     return s
-def items(s):return [x for x in read(REPO/'manifests/assets.json')['files'] if s['images'] or x['group']!='vision']
+def base_items(s):return [x for x in read(REPO/'manifests/assets.json')['files'] if s['images'] or x['group']!='vision']
+
+def pack_items(folder):
+    manifest=read(REPO/'manifests/assets.json');receipt=read(Path(folder)/'pack-manifest.json')
+    pins=[x for x in manifest['files'] if x['group']=='models']
+    if receipt.get('profile')!=manifest['profile'] or receipt.get('sources')!=pins:raise ValueError('Pack was not prepared for the pinned Unsloth model; run Prepare-Models.cmd')
+    files=receipt.get('files',[]);expected=set(manifest['generated_pack_files'])
+    if len(files)!=len(expected) or {x['path'] for x in files}!=expected:raise ValueError('Incomplete generated pack manifest')
+    for x in files:
+        if x.get('group')!='pack' or type(x.get('bytes')) is not int or x['bytes']<=0 or len(x.get('sha256',''))!=64 or any(c not in '0123456789abcdef' for c in x['sha256']):raise ValueError('Invalid generated pack manifest')
+    return files
+
+def items(s):return base_items(s)+pack_items(s['paths']['pack'])
 def verify_assets(s,full=True):
     errors=[]
-    for x in items(s):
+    try:checked=items(s)
+    except (OSError,ValueError,KeyError,TypeError) as exc:errors.append('Pack not ready: '+str(exc));checked=base_items(s)
+    for x in checked:
         p=inside(s['paths'][x['group']],x['path'])
         if not p.is_file():errors.append('Missing: '+str(p));continue
         if p.stat().st_size!=x['bytes']:errors.append('Size mismatch: '+str(p));continue
@@ -58,16 +72,16 @@ def load_settings(path):
     return s
 def model_id(s):return MODEL+('-cpu-vision-' if s['images'] else '-text-')+str(s['context']//1024)+'k'
 def server_config(s,paths,keys,root):
-    model1=next(x['path'] for x in items(s) if x['group']=='models' and '00001-of' in x['path'])
-    model2=next(x['path'] for x in items(s) if x['group']=='models' and '00002-of' in x['path'])
-    a=['--pack',paths['pack'],'--native',str(Path(paths['models'])/model1),'--ple-gguf',str(Path(paths['models'])/model2),'--expert-profile',str(root/'source/data/expert-profile.bin'),'--expert-cache','auto','--prefill','auto:8192','--spec','4','--spec-min-p','0.5','--mtp',paths['mtp'],'--max-context',str(s['context']),'--kv','int8','--kv-resident','16384','--resident-budget-gib','48','--vram-reserve-mib','1800','--pool-workers','7']
+    model1=next(x['path'] for x in base_items(s) if x['group']=='models' and '00001-of' in x['path'])
+    # Four-shard Unsloth: engine 0.1.57 discovers the PLE shard, matching upstream setup.
+    a=['--pack',paths['pack'],'--native',str(Path(paths['models'])/model1),'--expert-profile',str(root/'source/data/expert-profile.bin'),'--expert-cache','auto','--prefill','auto:8192','--spec','4','--spec-min-p','0.5','--mtp',paths['mtp'],'--max-context',str(s['context']),'--kv','int8','--kv-resident','16384','--resident-budget-gib','48','--vram-reserve-mib','1800','--pool-workers','7']
     c={'exe':str(Path(paths['engine'])/'strata.exe'),'args':a,'cwd':str(root/'source'),'tokenizer':str(Path(paths['pack'])/'tokenizer'),'model_name':model_id(s),'log':str(root/'logs/engine.log'),'lib_dirs':[paths['engine'],s['cuda_dir']],'host':'0.0.0.0' if s['lan'] else '127.0.0.1','port':s['port'],'gpu':0,'gpus_asked':True,'fit_max_tokens':True,'api_key':keys,'drafting':'mtp','env':{'STRATA_PLE_AUTO_RAM':'0'},'sampling':{'temperature':0,'top_p':1.0,'top_k':64,'min_p':0,'repetition_penalty':1.0,'presence_penalty':0,'frequency_penalty':0}}
     if s['images']:
-        a+=['--vision'];mm=next(x['path'] for x in items(s) if x['group']=='vision');c['vision']={'exe':str(Path(paths['engine'])/'strata-vision.exe'),'mmproj':str(Path(paths['vision'])/mm),'model':str(Path(paths['models'])/model1),'gpu':False,'threads':8,'max_tokens':1024}
+        a+=['--vision'];mm=next(x['path'] for x in base_items(s) if x['group']=='vision');c['vision']={'exe':str(Path(paths['engine'])/'strata-vision.exe'),'mmproj':str(Path(paths['vision'])/mm),'model':str(Path(paths['models'])/model1),'gpu':False,'threads':8,'max_tokens':1024}
     return c
 def opencode(s,url,key):
     mid=model_id(s)
-    return {'$schema':'https://opencode.ai/config.json','model':'strata/'+mid,'providers':{'strata':{'package':'@opencode/ai/providers/openai-compatible','name':'Strata Local '+str(s['context']//1024)+'K','settings':{'baseURL':url+'/v1','apiKey':key},'models':{mid:{'name':'SC117 IQ3_S '+('CPU Vision ' if s['images'] else 'Text ')+str(s['context']//1024)+'K','capabilities':{'input':['text','image'] if s['images'] else ['text'],'output':['text'],'tools':True},'compatibility':{'reasoningField':'reasoning_content'},'limit':{'context':s['context'],'output':16384}}}}},'compaction':{'auto':True,'buffer':24576,'keep':{'tokens':8000}}}
+    return {'$schema':'https://opencode.ai/config.json','model':'strata/'+mid,'providers':{'strata':{'package':'@opencode/ai/providers/openai-compatible','name':'Strata Local '+str(s['context']//1024)+'K','settings':{'baseURL':url+'/v1','apiKey':key},'models':{mid:{'name':'Unsloth UD-IQ3_XXS v3.1 '+('CPU Vision ' if s['images'] else 'Text ')+str(s['context']//1024)+'K','capabilities':{'input':['text','image'] if s['images'] else ['text'],'output':['text'],'tools':True},'compatibility':{'reasoningField':'reasoning_content'},'limit':{'context':s['context'],'output':16384}}}}},'compaction':{'auto':True,'buffer':24576,'keep':{'tokens':8000}}}
 def merge_opencode(path,new):
     path=Path(path);old=read(path) if path.exists() else {}
     if path.exists():shutil.copy2(path,path.with_name(path.name+'.strata-backup-'+datetime.datetime.now().strftime('%Y%m%d-%H%M%S-%f')))
@@ -86,7 +100,7 @@ def prerequisites(s):
     if int(gpu[1].strip())<15*1024:raise ValueError('This profile requires a 16GB-class NVIDIA GPU; tune smaller cards separately')
     if tuple(int(x) for x in driver.split('.')[:2])<(580,65):raise ValueError('NVIDIA driver 580.65+ required')
     total=int(subprocess.check_output(['powershell.exe','-NoProfile','-Command','(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory'],text=True).strip())
-    if total<90*1024**3:raise ValueError('This IQ3_S profile requires about 96GB RAM; tune separately on smaller PCs')
+    if total<90*1024**3:raise ValueError('This Unsloth UD-IQ3_XXS profile requires about 96GB RAM; tune separately on smaller PCs')
 def install(s,quick=False):
     validate(s);prerequisites(s);size=verify_assets(s,not quick);root=Path(s['install_root']).resolve()
     if (root/'installed.json').exists():raise ValueError('Installation already exists; use a new install_root. Existing configuration was preserved.')
@@ -103,6 +117,7 @@ def install(s,quick=False):
         paths={g:str(root/'assets'/g) for g in s['paths']}
         for x in items(s):
             dest=inside(paths[x['group']],x['path']);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(inside(s['paths'][x['group']],x['path']),dest)
+        shutil.copy2(Path(s['paths']['pack'])/'pack-manifest.json',Path(paths['pack'])/'pack-manifest.json')
         copied=dict(s,paths=paths);verify_assets(copied,not quick)
     invoke([s['python_exe'],'-m','venv',root/'.venv']);py=root/'.venv/Scripts/python.exe'
     pip=[py,'-m','pip','install','-r',root/'source/requirements.txt']
@@ -175,6 +190,7 @@ def rebind(root,assets,full=True):
     root=Path(root).resolve();assets=Path(assets)
     if not assets.is_absolute():assets=REPO/assets
     assets=assets.resolve();record=root/'installed.json';old=read(root/'server.json');meta=read(record)
+    if not old.get('model_name','').startswith(MODEL+'-'):raise ValueError('This runtime uses a different model profile; use its original installer to change paths')
     state=root/'server-process.private.json'
     if state.exists():
         st=read(state)
@@ -186,7 +202,7 @@ def rebind(root,assets,full=True):
     replacement=server_config(settings,paths,old['api_key'],root)
     new=dict(old);args=list(old['args'])
     # Change only file locations; preserve user tuning, keys, model identity and network settings.
-    for flag in ('--pack','--native','--ple-gguf','--mtp'):
+    for flag in ('--pack','--native','--mtp'):
         if flag not in args:raise ValueError('Cannot identify required path flag: '+flag)
         pos=args.index(flag)+1;args[pos]=replacement['args'][replacement['args'].index(flag)+1]
     new['args']=args;new['tokenizer']=replacement['tokenizer'];new['exe']=replacement['exe']

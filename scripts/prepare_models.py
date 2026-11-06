@@ -1,4 +1,4 @@
-"""Fetch pinned SC117 files and generate pack/MTP; no pre-existing installation."""
+"""Fetch pinned Unsloth files and generate pack/MTP; no pre-existing installation."""
 import argparse, hashlib, json, os, shutil, subprocess, sys, tarfile, time
 from pathlib import Path
 from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler
@@ -6,8 +6,8 @@ from urllib.parse import quote,urlsplit,urlunsplit
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
 import strata_local as deploy
-REV='eec4e10a2c29b440a2ae85591fa11569ce752963'
-MODEL_REPO='SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF'
+REV='d96201194f103c906994f283f504209dc8d2a10c'
+MODEL_REPO='unsloth/Qwen3.8-Flash-Next-GGUF'
 CONNECT_TIMEOUT=25
 PROXY=None
 LAST_HOST=''
@@ -30,7 +30,7 @@ def network_error(exc):
  reason=getattr(exc,'reason',exc)
  return type(reason).__name__+' (code '+str(getattr(reason,'winerror',None) or getattr(reason,'errno',None) or 'unknown')+')'
 
-def model_url(host,group,name):return host.rstrip('/')+'/'+MODEL_REPO+'/resolve/'+REV+'/'+('IQ3_S/' if group=='models' else '')+quote(name)
+def model_url(host,group,name):return host.rstrip('/')+'/models/'+MODEL_REPO+'/resolve/master/'+('UD-IQ3_XXS/' if group=='models' else '')+quote(name)
 def fetch(url,target,size,sha):
  target=Path(target);target.parent.mkdir(parents=True,exist_ok=True)
  if target.exists():
@@ -78,6 +78,9 @@ def safe_unpack(archive,destination,max_bytes):
    p.parent.mkdir(parents=True,exist_ok=True)
    with tf.extractfile(m) as src,p.open('wb') as out:shutil.copyfileobj(src,out)
 def group_ok(group,assets,manifest):
+ if group=='pack':
+  try:manifest=deploy.pack_items(assets/'pack')
+  except (OSError,ValueError,KeyError,TypeError):return False
  for item in manifest:
   if item['group']!=group:continue
   p=deploy.inside(assets/group,item['path'])
@@ -91,11 +94,13 @@ def probe(url,size=None,range_probe=False):
   length=r.headers.get('Content-Length')
   if range_probe:
    if r.status!=206:raise ValueError('MTP source must support HTTP range requests')
-   r.read(8)
-  if size is not None and length and int(length)!=size:raise ValueError('Remote size differs from pinned manifest')
+   data=r.read(8)
+   if '.gguf' in url and data[:4]!=b'GGUF':raise ValueError('Remote file is not GGUF')
+  actual=int(r.headers.get('Content-Range','/0').rsplit('/',1)[1]) if range_probe else (int(length) if length else None)
+  if size is not None and actual!=size:raise ValueError('Remote size differs from pinned manifest')
   print(json.dumps({'url':safe_url(url),'status':r.status,'bytes':length}),flush=True)
 def main():
- ap=argparse.ArgumentParser();ap.add_argument('--assets',default='../strata-assets');ap.add_argument('--no-images',action='store_true');ap.add_argument('--mirror',default='https://hf-mirror.com');ap.add_argument('--modelscope',default='https://www.modelscope.cn');ap.add_argument('--probe',action='store_true');ap.add_argument('--proxy');ap.add_argument('--timeout',type=int,default=25);a=ap.parse_args()
+ ap=argparse.ArgumentParser();ap.add_argument('--assets',default='../strata-assets');ap.add_argument('--no-images',action='store_true');ap.add_argument('--modelscope',default='https://www.modelscope.cn');ap.add_argument('--probe',action='store_true');ap.add_argument('--proxy');ap.add_argument('--timeout',type=int,default=25);a=ap.parse_args()
  global CONNECT_TIMEOUT,PROXY
  if not 5<=a.timeout<=600:raise ValueError('timeout must be 5..600 seconds')
  CONNECT_TIMEOUT=a.timeout;PROXY=a.proxy
@@ -103,10 +108,10 @@ def main():
  assets=Path(a.assets).resolve()
  if assets==ROOT or any(assets.is_relative_to(ROOT/n) for n in ('vendor','scripts','docs','tests','manifests','.git','prereqs')):raise ValueError('Choose a separate assets folder, such as ./assets')
  images=not a.no_images;manifest=deploy.read(ROOT/'manifests/assets.json')['files'];version=deploy.read(ROOT/'manifests/versions.json')
- downloads=[(model_url(a.mirror,x['group'],x['path']),x) for x in manifest if x['group']=='models' or (images and x['group']=='vision')]
+ downloads=[(model_url(a.modelscope,x['group'],x['path']),x) for x in manifest if x['group']=='models' or (images and x['group']=='vision')]
  index_url=a.modelscope.rstrip('/')+'/models/Qwen/Qwen3.8-Flash-Next/resolve/master/model.safetensors.index.json'
  if a.probe:
-  for u,x in downloads:probe(u,x['bytes'])
+  for u,x in downloads:probe(u,x['bytes'],range_probe=True)
   probe(version['engine_url'])
   with open_url(Request(index_url,headers={'User-Agent':'strata_local/1'}),timeout=40) as r:index=json.load(r)
   weight=next(v for k,v in index['weight_map'].items() if k.startswith('mtp.'))
@@ -114,7 +119,7 @@ def main():
   print('Source probe passed. Model weights were not downloaded.');return
  if sys.version_info[:2]!=(3,11):raise ValueError('Python 3.11 required')
  assets.mkdir(parents=True,exist_ok=True);(assets/'.gitignore').write_text('*\n!.gitignore\n',encoding='utf-8')
- need=6*1024**3
+ need=9*1024**3
  for item in manifest:
   if item['group']=='vision' and not images:continue
   f=assets/item['group']/item['path'];part=f.with_name(f.name+'.part');have=f.stat().st_size if f.is_file() else (part.stat().st_size if part.is_file() else 0);need+=max(0,item['bytes']-have)
@@ -127,18 +132,28 @@ def main():
   archive=work/'engine.tar.gz';fetch(version['engine_url'],archive,627812560,version['engine_archive_sha256']);safe_unpack(archive,assets/'engine',970245089)
   print('STEP 2/4: Engine',flush=True)
  if not group_ok('engine',assets,manifest):raise ValueError('Engine file verification failed')
- env=dict(os.environ,HF_ENDPOINT=a.mirror,STRATA_SOURCE='modelscope',MODELSCOPE_ENDPOINT=a.modelscope,STRATA_GGUF_PY=str(ROOT/'vendor/llama.cpp/gguf-py'))
+ env=dict(os.environ,STRATA_SOURCE='modelscope',MODELSCOPE_ENDPOINT=a.modelscope,STRATA_GGUF_PY=str(ROOT/'vendor/llama.cpp/gguf-py'))
  if a.proxy:env.update(HTTPS_PROXY=a.proxy,HTTP_PROXY=a.proxy)
  def run(tool,*args):subprocess.run([sys.executable,str(ROOT/'vendor/strata/tools'/tool),*map(str,args)],check=True,env=env)
  print('STEP 3/4: Prepare model pack',flush=True)
  if not group_ok('pack',assets,manifest):
+  # Discard only known generated files so an old tokenizer cannot survive a profile change.
+  for name in deploy.read(ROOT/'manifests/assets.json')['generated_pack_files']+['pack-manifest.json']:
+   deploy.inside(assets/'pack',name).unlink(missing_ok=True)
   shard=next(x['path'] for x in manifest if x['group']=='models' and '00001-of' in x['path']);run('iq_pack.py','--gguf',assets/'models'/shard,'--out',assets/'pack','--compat-bf16')
+  catalog=deploy.read(ROOT/'manifests/assets.json');files=[]
+  for name in catalog['generated_pack_files']:
+   f=deploy.inside(assets/'pack',name)
+   if not f.is_file() or not f.stat().st_size:raise ValueError('Missing generated pack file: '+name)
+   files.append({'group':'pack','path':name,'bytes':f.stat().st_size,'sha256':deploy.digest(f)})
+  deploy.save(assets/'pack/pack-manifest.json',{'profile':catalog['profile'],'sources':[x for x in manifest if x['group']=='models'],'files':files})
+ if not group_ok('pack',assets,manifest):raise ValueError('Generated pack verification failed')
  print('STEP 4/4: Prepare MTP from ModelScope',flush=True)
  if not group_ok('mtp',assets,manifest):
   mtp=work/'mtp';run('mtp_fetch.py','fetch','--out',mtp);run('mtp_fetch.py','verify','--out',mtp);run('mtp_pack.py','--src',mtp,'--experts','q2_0','--out',mtp/'mtp-q2_0.gguf');run('mtp_rt.py','--gguf',mtp/'mtp-q2_0.gguf','--out',assets/'mtp');shutil.copy2(ROOT/'vendor/strata/data/draft_vocab.bin',assets/'mtp/draft_vocab.bin')
  for g in ['models','pack','mtp','engine']+(['vision'] if images else []):
   if not group_ok(g,assets,manifest):raise ValueError('Final prepared asset verification failed: '+g)
- deploy.save(assets/'prepared.json',{'profile':'SC117-IQ3_S','images':images,'engine':'0.1.57'})
+ deploy.save(assets/'prepared.json',{'profile':'Unsloth-UD-IQ3_XXS-v3.1','images':images,'engine':'0.1.57'})
  # Remove only this tool's fixed work directory after complete validation.
  if work.parent==assets and work.name=='_work':shutil.rmtree(work)
  print('Files ready. Run Install.cmd and choose: '+str(assets))

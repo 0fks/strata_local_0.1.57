@@ -1,32 +1,18 @@
-﻿# 다운로드 시간 초과 (WinError 10060)
+# 다운로드 연결 오류
 
-Python 패키지 설치가 끝나고 바로 이 오류가 나면 첫 GGUF 파일 서버 접속 단계일 가능성이 큽니다. 새 버전은 파일명·주소·리디렉션 서버를 먼저 표시합니다.
+GGUF·이미지 인코더·MTP는 **ModelScope**, 엔진은 **GitHub**에서 직접 받습니다. hf-mirror를 사용하지 않습니다.
 
-1. `git pull`로 설치 도구를 갱신합니다.
-2. **Prepare-Models.cmd**를 다시 실행합니다.
-3. 같은 다운로드 폴더를 입력하세요. `.part` 파일이 있으면 가능한 경우 이어받습니다.
-4. 오류가 나면 **File / Source / Redirect / Network failure** 줄을 함께 확인하세요.
+1. `git pull`로 갱신합니다.
+2. Prepare-Models.cmd를 실행하고 같은 다운로드 폴더를 입력합니다.
+3. 중단된 파일은 서버가 지원하면 이어받고 완료 후 SHA-256을 검사합니다.
+4. 계속 실패하면 File / Source / Redirect / Network failure 줄을 확인하세요.
 
-hf-mirror는 독립 파일 저장소가 아닐 수 있습니다. 실제 확인한 경로는 아래와 같았습니다:
-
-```text
-hf-mirror.com → huggingface.co → us.aws.cdn.hf.co
-```
-
-이 중 하나가 차단되면 미러 페이지가 열려도 파일은 안 받아질 수 있습니다. 단순히 제한 시간을 늘리는 것으로 해결되지 않습니다.
-
-## 다른 경로 선택
-
-마법사의 모델 서버 질문에서 **2**를 선택하면 Hugging Face 원본 주소로 시도합니다. 두 경로 모두 동일한 CDN에 도착할 수 있으므로 연결을 보장하지는 않습니다.
-
-HTTP 프록시를 실제로 사용하고 있다면 해당 프로그램이 제공하는 주소를 입력하세요. 사용하지 않는다면 Enter를 누릅니다. 프록시를 새로 설치하거나 임의 주소를 입력할 필요는 없습니다.
-
-다음은 **프록시 프로그램이 실제로 그 포트에서 실행 중일 때만** 쓰는 예시입니다:
+작은 응답으로 연결만 먼저 확인하려면:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Prepare-Models.ps1 -AssetsPath D:\strata-assets -Proxy http://127.0.0.1:7890 -Probe
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Prepare-Models.ps1 -Probe
 ```
 
-`-Probe`는 대용량 파일을 받지 않고 접속을 검사합니다. 프록시 주소는 저장소에 저장하지 않습니다. 브라우저 전용 프록시는 Python 다운로드에 적용되지 않을 수 있으므로 프로그램이 제공하는 HTTP 프록시 주소가 필요합니다.
+이 검사는 대용량 모델을 받지 않고 GGUF 4개·이미지 인코더의 실제 데이터 일부, MTP Range 응답, 엔진 주소를 확인합니다. 사용자 PC의 연결은 그 PC에서 검사해야 합니다.
 
-사내망·방화벽 정책 때문에 CDN이 막혔다면 허용된 네트워크 또는 관리자에게 요청한 연결 경로가 필요합니다. 이 도구는 접근 제한을 해제하거나 우회하지 않습니다.
+HTTP 프록시를 이미 사용한다면 마법사에 해당 주소를 입력하세요. 사용하지 않으면 Enter를 누릅니다. 브라우저 전용 프록시는 Python에 적용되지 않을 수 있습니다.
