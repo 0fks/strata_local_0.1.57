@@ -14,6 +14,29 @@ def digest(p):
     with Path(p).open('rb') as f:
         for c in iter(lambda:f.read(8*1024*1024),b''):h.update(c)
     return h.hexdigest()
+def portable_digest(path,mode):
+    path=Path(path)
+    if mode=='json':
+        value=read(path)
+        if path.name=='compat-bf16.json' and isinstance(value,dict) and isinstance(value.get('source'),str):
+            value['source']=value['source'].replace('\\','/').rsplit('/',1)[-1]
+        data=json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode('utf-8')
+    elif mode=='text-lf':data=path.read_text(encoding='utf-8-sig').replace('\r\n','\n').encode('utf-8')
+    else:raise ValueError('Unknown portable verification format')
+    return hashlib.sha256(data).hexdigest()
+
+def asset_error(path,item,full=True):
+    path=Path(path)
+    if not path.is_file():return 'Missing: '+str(path)
+    if item.get('portable_format'):
+        try:actual=portable_digest(path,item['portable_format'])
+        except (OSError,ValueError,TypeError):return 'Invalid metadata: '+str(path)
+        if actual!=item['portable_sha256']:return 'Metadata SHA256 mismatch: '+str(path)
+    else:
+        if path.stat().st_size!=item['bytes']:return 'Size mismatch: '+str(path)
+        if full and digest(path)!=item['sha256']:return 'SHA256 mismatch: '+str(path)
+    return None
+
 def inside(root,relative):
     root=Path(root).resolve();p=(root/relative).resolve()
     if not p.is_relative_to(root):raise ValueError('Path escapes asset root: '+relative)
@@ -77,11 +100,9 @@ def verify_assets(s,full=True):
     except (OSError,ValueError,KeyError,TypeError) as exc:errors.append('Pack not ready: '+str(exc));checked=base_items(s)
     for x in checked:
         p=inside(s['paths'][x['group']],x['path'])
-        if not p.is_file():errors.append('Missing: '+str(p));continue
-        if p.stat().st_size!=x['bytes']:errors.append('Size mismatch: '+str(p));continue
-        if full:
-            print('SHA-256 check: '+p.name,flush=True)
-            if digest(p)!=x['sha256']:errors.append('SHA256 mismatch: '+str(p))
+        if full:print('SHA-256 check: '+p.name,flush=True)
+        error=asset_error(p,x,full)
+        if error:errors.append(error)
     cuda=Path(s['cuda_dir'])
     if not (cuda/'cudart64_13.dll').is_file():errors.append('CUDA 13 runtime cudart64_13.dll missing from cuda_dir')
     # Manifest hash pins the separately distributed, originally signed engine package.

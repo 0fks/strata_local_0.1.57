@@ -25,6 +25,18 @@ class DeploymentTests(unittest.TestCase):
  def test_invalid_quant_rejected(self):
   self.s['quant']='UD-IQ3_XXS'
   with self.assertRaises(ValueError):d.validate(self.s)
+ def test_pack_metadata_allows_new_source_drive_but_rejects_wrong_model(self):
+  f=self.root/'compat-bf16.json';d.save(f,{'source':'D:/original/model.gguf','rounding':'nearest-even','tensors':[]})
+  item={'bytes':f.stat().st_size,'sha256':d.digest(f),'portable_format':'json','portable_sha256':d.portable_digest(f,'json')}
+  f.write_text(json.dumps({'tensors':[],'rounding':'nearest-even','source':r'X:\portable\models\model.gguf'},indent=4),encoding='utf-8')
+  self.assertIsNone(d.asset_error(f,item));self.assertIsNone(d.asset_error(f,item,False));self.assertNotEqual(d.digest(f),item['sha256'])
+  d.save(f,{'source':'X:/portable/another-model.gguf','rounding':'nearest-even','tensors':[]});self.assertIn('mismatch',d.asset_error(f,item))
+  f.write_text('{broken',encoding='utf-8');self.assertIn('Invalid metadata',d.asset_error(f,item))
+ def test_pack_text_line_endings_are_portable_but_content_is_pinned(self):
+  f=self.root/'index.txt';f.write_bytes(b'index version 3\nweights 100\n');item={'bytes':f.stat().st_size,'sha256':d.digest(f),'portable_format':'text-lf','portable_sha256':d.portable_digest(f,'text-lf')}
+  f.write_bytes(b'index version 3\r\nweights 100\r\n');self.assertIsNone(d.asset_error(f,item));f.write_bytes(b'index version 3\nweights 101\n');self.assertIn('mismatch',d.asset_error(f,item))
+ def test_binary_weight_integrity_is_still_exact(self):
+  f=self.root/'dense.bin';f.write_bytes(b'weight-data');item={'bytes':f.stat().st_size,'sha256':d.digest(f)};f.write_bytes(b'weight-DATA');self.assertIn('SHA256 mismatch',d.asset_error(f,item));f.write_bytes(b'short');self.assertIn('Size mismatch',d.asset_error(f,item))
  def test_invalid_context_rejected(self):
   self.s['context']=192
   with self.assertRaises(ValueError):d.validate(self.s)

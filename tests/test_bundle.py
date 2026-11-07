@@ -9,7 +9,8 @@ class BundleIntegrationTests(unittest.TestCase):
    repo=Path(temp)/'repo';assets=Path(temp)/'assets';(repo/'manifests').mkdir(parents=True)
    original=p.deploy.read(p.ROOT/'manifests/assets.json');qmanifest=p.deploy.read(p.ROOT/'manifests/sc117-quants.json')
    payload=b'verified-fixture';import hashlib;sha=hashlib.sha256(payload).hexdigest()
-   for x in original['files']:x.update(bytes=len(payload),sha256=sha)
+   for x in original['files']:
+    x.update(bytes=len(payload),sha256=sha);x.pop('portable_format',None);x.pop('portable_sha256',None)
    for models in qmanifest['models'].values():
     for x in models:x.update(bytes=len(payload),sha256=sha)
    qmanifest['estimated_pack_bytes']=len(payload)*len(qmanifest['generated_pack_files'])

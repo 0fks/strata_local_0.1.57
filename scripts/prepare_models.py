@@ -99,7 +99,7 @@ def safe_unpack(archive,destination,max_bytes):
    if not m.isfile():raise ValueError('Links/devices are not accepted in engine archive')
    p.parent.mkdir(parents=True,exist_ok=True)
    with tf.extractfile(m) as src,p.open('wb') as out:shutil.copyfileobj(src,out)
-def group_ok(group,assets,manifest,quant='IQ3_S'):
+def group_ok(group,assets,manifest,quant='IQ3_S',report=False):
  paths=deploy.asset_paths(assets,quant)
  if group=='pack' and quant!='IQ3_S':
   try:manifest=deploy.pack_items(paths['pack'],quant)
@@ -107,7 +107,10 @@ def group_ok(group,assets,manifest,quant='IQ3_S'):
  for item in manifest:
   if item['group']!=group:continue
   p=deploy.inside(paths[group],item['path'])
-  if not p.is_file() or p.stat().st_size!=item['bytes'] or deploy.digest(p)!=item['sha256']:return False
+  error=deploy.asset_error(p,item)
+  if error:
+   if report:print('Verification failed: '+error,flush=True)
+   return False
  return True
 
 def download_entries(assets,quants,images,host):
@@ -200,7 +203,7 @@ def main():
      generated.append({'group':'pack','path':name,'bytes':f.stat().st_size,'sha256':deploy.digest(f)})
     deploy.save(Path(paths['pack'])/'pack-manifest.json',{'profile':'SC117-'+q,'sources':[x for x in files if x['group']=='models'],'files':generated})
   for g in ['models','pack','mtp','engine']+(['vision'] if images else []):
-   if not group_ok(g,assets,files,q):raise ValueError('Final prepared asset verification failed: '+q+'/'+g)
+   if not group_ok(g,assets,files,q,report=True):raise ValueError('Final prepared asset verification failed: '+q+'/'+g)
   deploy.save(Path(paths['pack'])/'prepared.json',{'profile':'SC117-'+q,'quant':q,'images':images,'engine':'0.1.57'})
  old=deploy.read(assets/'prepared.json') if (assets/'prepared.json').is_file() else {}
  available=set(old.get('available_quants',[]))|set(quants)

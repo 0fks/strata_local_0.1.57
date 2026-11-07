@@ -18,13 +18,17 @@
       "group": "pack",
       "path": "compat-bf16.json",
       "bytes": 196,
-      "sha256": "8036288322e0309515aff25d781d6b97a3174844f26e5d0c32bbf198951b0ae3"
+      "sha256": "8036288322e0309515aff25d781d6b97a3174844f26e5d0c32bbf198951b0ae3",
+      "portable_format": "json",
+      "portable_sha256": "839644415598bfe1e1598dc2a35e94bdf017c852116692e0701366c235aad926"
     },
     {
       "group": "pack",
       "path": "conversions.json",
       "bytes": 345,
-      "sha256": "eb701949b939627276728e672643f2e1ef8099806a0b8aa9bee370e39153c2eb"
+      "sha256": "eb701949b939627276728e672643f2e1ef8099806a0b8aa9bee370e39153c2eb",
+      "portable_format": "json",
+      "portable_sha256": "5852072b9421b265c209e1c6ec6489228b0266c861f455909c351b3e3bea5a96"
     },
     {
       "group": "pack",
@@ -36,43 +40,57 @@
       "group": "pack",
       "path": "index.txt",
       "bytes": 93697,
-      "sha256": "02e228d5488792b1c2cb97b7021d099f47b198f5e13d0b9f9bc8716bb0592146"
+      "sha256": "02e228d5488792b1c2cb97b7021d099f47b198f5e13d0b9f9bc8716bb0592146",
+      "portable_format": "text-lf",
+      "portable_sha256": "02e228d5488792b1c2cb97b7021d099f47b198f5e13d0b9f9bc8716bb0592146"
     },
     {
       "group": "pack",
       "path": "native_experts.txt",
       "bytes": 3316,
-      "sha256": "adba4968661f3d59f749a676a87948e29236c81997f649f5526daf71148edc24"
+      "sha256": "adba4968661f3d59f749a676a87948e29236c81997f649f5526daf71148edc24",
+      "portable_format": "text-lf",
+      "portable_sha256": "adba4968661f3d59f749a676a87948e29236c81997f649f5526daf71148edc24"
     },
     {
       "group": "pack",
       "path": "tokenizer/chat_template.jinja",
       "bytes": 9993,
-      "sha256": "12827f24b742ea4e80cdc12dbcf9622227056b9f797252a3149263d4f9aaadce"
+      "sha256": "12827f24b742ea4e80cdc12dbcf9622227056b9f797252a3149263d4f9aaadce",
+      "portable_format": "text-lf",
+      "portable_sha256": "12827f24b742ea4e80cdc12dbcf9622227056b9f797252a3149263d4f9aaadce"
     },
     {
       "group": "pack",
       "path": "tokenizer/merges.txt",
       "bytes": 3600844,
-      "sha256": "080cf95432173729d160346b7882bd2a644b07f7a3813a3eb73f4e66787bfde9"
+      "sha256": "080cf95432173729d160346b7882bd2a644b07f7a3813a3eb73f4e66787bfde9",
+      "portable_format": "text-lf",
+      "portable_sha256": "4ba698529766c7a2f5052083ea10cdf2485577f5237a332ee291054eb11e3332"
     },
     {
       "group": "pack",
       "path": "tokenizer/tokenizer.json",
       "bytes": 554,
-      "sha256": "87be2ac47d8bc7393b7435df6ccd276740019a393941a2585d5edce59f450c54"
+      "sha256": "87be2ac47d8bc7393b7435df6ccd276740019a393941a2585d5edce59f450c54",
+      "portable_format": "json",
+      "portable_sha256": "fc82ffb3cfeb6b51fb3fd90bb1511e045007cfa849f2739989fd85850d22adc6"
     },
     {
       "group": "pack",
       "path": "tokenizer/token_type.json",
       "bytes": 744960,
-      "sha256": "5088c8c298fc06af8382ddb3b76c888703ac2634e82263b97eedcc2ad202738b"
+      "sha256": "5088c8c298fc06af8382ddb3b76c888703ac2634e82263b97eedcc2ad202738b",
+      "portable_format": "json",
+      "portable_sha256": "f6fdca1063d1ae1cc77ba1f5087d259f044c2634e64b65e31bc844ec00e9acab"
     },
     {
       "group": "pack",
       "path": "tokenizer/vocab.json",
       "bytes": 5737005,
-      "sha256": "4ba64f0332abcfb0b600b7df1537d1e836e68009d5fb7cdb77339738dc6365c4"
+      "sha256": "4ba64f0332abcfb0b600b7df1537d1e836e68009d5fb7cdb77339738dc6365c4",
+      "portable_format": "json",
+      "portable_sha256": "b24e9f0170947889714c2bf8d5aeef01320c9604f068cd8c4c91a3e446da6ce7"
     },
     {
       "group": "mtp",
