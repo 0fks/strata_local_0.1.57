@@ -39,3 +39,10 @@ class BundleIntegrationTests(unittest.TestCase):
     self.assertEqual(Path(p.deploy.asset_paths(Path(temp)/'moved', 'IQ3_XXS')['models']).parts[-2:],('models','IQ3_XXS'))
    # A fully prepared rerun must skip every pack conversion.
    with patch.object(p,'ROOT',repo),patch.object(p.deploy,'REPO',repo),patch.object(p,'fetch',side_effect=fake_fetch),patch.object(p.subprocess,'run') as build,patch.object(sys,'argv',args):p.main();build.assert_not_called()
+
+   # Option 4 after a multi-model preparation must reuse XXS and preserve every other model.
+   before={str(f.relative_to(assets)):f.read_bytes() for f in (assets/'models').rglob('*.gguf')}
+   args=['prepare_models.py','--assets',str(assets),'--quants','IQ3_XXS']
+   with patch.object(p,'ROOT',repo),patch.object(p.deploy,'REPO',repo),patch.object(p,'fetch',side_effect=fake_fetch),patch.object(p.subprocess,'run') as build,patch.object(sys,'argv',args):p.main();build.assert_not_called()
+   self.assertEqual(p.deploy.read(assets/'prepared.json')['available_quants'],list(p.deploy.QUANTS))
+   self.assertEqual(before,{str(f.relative_to(assets)):f.read_bytes() for f in (assets/'models').rglob('*.gguf')})

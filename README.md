@@ -10,6 +10,7 @@ Windows · RAM 96GB · NVIDIA GPU 메모리 16GB 이상을 기준으로 준비�
 - 모델 선택 **1** 또는 Enter: **SC117 IQ3_S + IQ3_XXS** 두 종류.
 - 모델 선택 **2**: **IQ2_XS까지 세 종류**.
 - 모델 선택 **3**: 기존 **IQ3_S만**.
+- 모델 선택 **4**: **IQ3_XXS만**.
 - 이미지 입력: 사용할 예정이면 **Y**.
 - 프록시: 사용하지 않으면 Enter.
 
@@ -17,9 +18,10 @@ Windows · RAM 96GB · NVIDIA GPU 메모리 16GB 이상을 기준으로 준비�
 
 | 준비할 SC117 모델 | 이미지 포함 실행용 파일 예상 합계 | 준비 시작 전 권장 여유 공간 |
 | --- | ---: | ---: |
-| IQ3_S만 | 88.1GB | 105GB 이상 |
-| IQ3_S + IQ3_XXS | 165.8GB | 180GB 이상 |
-| 위 두 종류 + IQ2_XS | 235.8GB | 250GB 이상 |
+| 1번: IQ3_S + IQ3_XXS | 165.8GB | 180GB 이상 |
+| 2번: 위 두 종류 + IQ2_XS | 235.8GB | 250GB 이상 |
+| 3번: IQ3_S만 | 88.1GB | 105GB 이상 |
+| 4번: IQ3_XXS만 | 80.4GB | 95GB 이상 |
 
 pack 용량은 추정치이며 준비용 Python 환경·임시 파일은 별도입니다. 3종을 준비한다면 여유 있게 500GB급 NVMe를 권장합니다. 공통 엔진·MTP·이미지 인코더는 한 번만 저장합니다.
 
@@ -59,3 +61,5 @@ Install.cmd를 모델마다 한 번씩 실행해 별도 설치 폴더를 만드�
 Strata를 Stop → 다운로드 폴더 전체 이동 → **Change-Assets.cmd**에서 설치 폴더와 새 파일 폴더 지정 → Start 순서입니다. API 키와 모델·OpenCode 설정은 유지합니다.
 
 [파일 목록](docs/ASSETS.ko.md) · [Python/CUDA](docs/PREREQUISITES.ko.md) · [OpenCode](docs/OPENCODE.ko.md) · [연결 진단](docs/NETWORK.ko.md) · [검증 범위](docs/VALIDATION.ko.md) · [라이선스](THIRD_PARTY_NOTICES.md)
+
+이미 1번으로 준비한 데이터는 업데이트 후에도 그대로 사용합니다. 다시 다운로드하거나 폴더를 옮길 필요가 없습니다. 같은 폴더에서 4번만 재실행해도 기존 IQ3_S 데이터는 삭제하지 않습니다.

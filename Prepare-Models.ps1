@@ -9,13 +9,14 @@ if($AssetsPath -eq $root){throw '다운로드용 하위 폴더를 지정하세�
 foreach($n in @('vendor','scripts','docs','tests','manifests','.git','prereqs')){$reserved=Join-Path $root $n;if($AssetsPath -eq $reserved -or $AssetsPath.StartsWith($reserved+'\',[StringComparison]::OrdinalIgnoreCase)){throw '소스 폴더에 다운로드할 수 없습니다.'}}
 if(!$Probe){New-Item -ItemType Directory -Path $AssetsPath -Force|Out-Null;[IO.File]::WriteAllText((Join-Path $AssetsPath '.gitignore'),"*`n!.gitignore`n",[Text.UTF8Encoding]::new($false))}
 
-$choice=Read-Host '받을 SC117 모델: 1=IQ3_S+IQ3_XXS, 2=IQ2_XS까지 3종, 3=IQ3_S만 [1]'
+$choice=Read-Host '받을 SC117 모델: 1=IQ3_S+IQ3_XXS, 2=IQ2_XS까지 3종, 3=IQ3_S만, 4=IQ3_XXS만 [1]'
 if(!$choice){$choice='1'}
 switch($choice){
  '1'{$quants=@('IQ3_S','IQ3_XXS')}
  '2'{$quants=@('IQ3_S','IQ3_XXS','IQ2_XS')}
  '3'{$quants=@('IQ3_S')}
- default{throw '1, 2, 3 중에서 선택하세요.'}
+ '4'{$quants=@('IQ3_XXS')}
+ default{throw '1, 2, 3, 4 중에서 선택하세요.'}
 }
 $images=Read-Host '이미지 입력 파일도 받기? (Y/N) [Y]'
 if(!$Proxy){$Proxy=Read-Host 'HTTP 프록시 주소 (사용하지 않으면 Enter)'}
