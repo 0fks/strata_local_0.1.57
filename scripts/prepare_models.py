@@ -1,7 +1,7 @@
 """Fetch pinned SC117 files and generate pack/MTP; no pre-existing installation."""
-import argparse, hashlib, json, os, shutil, subprocess, sys, tarfile, time
+import argparse, hashlib, json, os, shutil, subprocess, sys, tarfile, time, ssl
 from pathlib import Path
-from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler
+from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler,HTTPSHandler
 from urllib.parse import quote,urlsplit,urlunsplit
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts'))
@@ -11,6 +11,8 @@ MODEL_REPO='SC117/Qwen3.8-Flash-Next-GSQ-RCO-abliterated-GGUF'
 CONNECT_TIMEOUT=25
 PROXY=None
 LAST_HOST=''
+CA_FILE=None
+TLS_CONTEXT=None
 def safe_url(url):
  u=urlsplit(url);host=u.hostname or '';host=('['+host+']') if ':' in host else host;netloc=host+(':'+str(u.port) if u.port else '');return urlunsplit((u.scheme,netloc,u.path,'',''))
 class NetworkRedirects(HTTPRedirectHandler):
@@ -19,15 +21,32 @@ class NetworkRedirects(HTTPRedirectHandler):
   LAST_HOST=urlsplit(newurl).hostname or ''
   print('Redirect -> '+LAST_HOST,flush=True)
   return super().redirect_request(req,fp,code,msg,headers,newurl)
+def make_tls_context():
+ # Keep system roots (including Windows enterprise roots) and add public roots.
+ context=ssl.create_default_context()
+ try:import certifi
+ except ImportError:certifi=None
+ if certifi is not None:context.load_verify_locations(cafile=certifi.where())
+ if CA_FILE:context.load_verify_locations(cafile=CA_FILE)
+ return context
+
 def open_url(req,timeout=None):
- global LAST_HOST
+ global LAST_HOST,TLS_CONTEXT
  LAST_HOST=urlsplit(req.full_url).hostname or ''
  handlers=[NetworkRedirects()]
+ if urlsplit(req.full_url).scheme=='https':
+  if TLS_CONTEXT is None:TLS_CONTEXT=make_tls_context()
+  handlers.append(HTTPSHandler(context=TLS_CONTEXT))
  if PROXY:handlers.append(ProxyHandler({'http':PROXY,'https':PROXY}))
  return build_opener(*handlers).open(req,timeout=CONNECT_TIMEOUT)
+
 def network_error(exc):
  if getattr(exc,'code',None):return 'HTTP '+str(exc.code)
  reason=getattr(exc,'reason',exc)
+ if isinstance(reason,ssl.SSLCertVerificationError):
+  message=getattr(reason,'verify_message',None) or str(reason)
+  code=getattr(reason,'verify_code',None)
+  return 'SSLCertVerificationError: '+message+' (verify_code '+str(code)+')'
  return type(reason).__name__+' (code '+str(getattr(reason,'winerror',None) or getattr(reason,'errno',None) or 'unknown')+')'
 
 def model_url(host,group,name,quant='IQ3_S'):
@@ -64,6 +83,7 @@ def fetch(url,target,size,sha):
    if part.stat().st_size==size:break
   except (OSError,TimeoutError) as exc:
    print('Network failure at '+LAST_HOST+': '+network_error(exc),flush=True)
+   if isinstance(getattr(exc,'reason',exc),ssl.SSLCertVerificationError):raise RuntimeError('TLS certificate verification failed at '+LAST_HOST+': '+network_error(exc)+'. Update with git pull and rerun Prepare-Models.cmd to refresh public CA certificates. If this persists, share this exact verification message. A trusted custom CA can be added with Prepare-Models.ps1 -CAFile <certificate.pem>.') from exc
    if attempt==2:raise RuntimeError('Cannot reach '+LAST_HOST+'. Check firewall/proxy or use Prepare-Models.ps1 -Probe. Any partial file is kept; use the same download folder to resume.') from exc
    print('Download interrupted; retrying...',flush=True);time.sleep(1+attempt)
  if not part.exists() or part.stat().st_size!=size or deploy.digest(part)!=sha:raise ValueError('Downloaded file SHA256/size mismatch: '+str(part))
@@ -121,10 +141,11 @@ def probe(url,size=None,range_probe=False):
   print(json.dumps({'url':safe_url(url),'status':r.status,'bytes':length}),flush=True)
 def main():
  ap=argparse.ArgumentParser()
- ap.add_argument('--assets',default='../strata-assets');ap.add_argument('--quants',nargs='+',choices=deploy.QUANTS,default=['IQ3_S','IQ3_XXS']);ap.add_argument('--no-images',action='store_true');ap.add_argument('--mirror',default='https://huggingface.co');ap.add_argument('--probe',action='store_true');ap.add_argument('--plan',action='store_true');ap.add_argument('--proxy');ap.add_argument('--timeout',type=int,default=25);a=ap.parse_args()
- global CONNECT_TIMEOUT,PROXY
+ ap.add_argument('--assets',default='../strata-assets');ap.add_argument('--quants',nargs='+',choices=deploy.QUANTS,default=['IQ3_S','IQ3_XXS']);ap.add_argument('--no-images',action='store_true');ap.add_argument('--mirror',default='https://huggingface.co');ap.add_argument('--probe',action='store_true');ap.add_argument('--plan',action='store_true');ap.add_argument('--proxy');ap.add_argument('--ca-file');ap.add_argument('--timeout',type=int,default=25);a=ap.parse_args()
+ global CONNECT_TIMEOUT,PROXY,CA_FILE,TLS_CONTEXT
  if not 5<=a.timeout<=600:raise ValueError('timeout must be 5..600 seconds')
- CONNECT_TIMEOUT=a.timeout;PROXY=a.proxy
+ CONNECT_TIMEOUT=a.timeout;PROXY=a.proxy;CA_FILE=str(Path(a.ca_file).resolve()) if a.ca_file else None;TLS_CONTEXT=None
+ if CA_FILE and not Path(CA_FILE).is_file():raise ValueError('CA file not found: '+CA_FILE)
  if PROXY and urlsplit(PROXY).scheme not in ('http','https'):raise ValueError('Proxy must be an HTTP/HTTPS proxy URL')
  assets=Path(a.assets).resolve();quants=list(dict.fromkeys(a.quants));images=not a.no_images
  if assets==ROOT or any(assets.is_relative_to(ROOT/n) for n in ('vendor','scripts','docs','tests','manifests','.git','prereqs')):raise ValueError('Choose a separate assets folder')

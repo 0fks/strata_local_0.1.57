@@ -44,6 +44,22 @@ class DownloadTests(unittest.TestCase):
  def test_safe_source_url_does_not_log_credentials(self):
   text=p.safe_url('https://user:password@example.test:8443/model.gguf?token=secret')
   self.assertEqual(text,'https://example.test:8443/model.gguf');self.assertNotIn('password',text);self.assertNotIn('secret',text)
+ def test_tls_certificate_failure_reports_reason_without_retry(self):
+  import ssl
+  error=ssl.SSLCertVerificationError(1,'certificate verify failed');error.verify_code=20;error.verify_message='unable to get local issuer certificate'
+  f=self.root/'cert.gguf';part=f.with_name(f.name+'.part');part.write_bytes(b'ab')
+  with patch.object(p,'open_url',side_effect=URLError(error)) as opening,redirect_stdout(io.StringIO()) as output:
+   with self.assertRaises(RuntimeError) as e:p.fetch('https://example.test/model.gguf',f,len(DATA),hashlib.sha256(DATA).hexdigest())
+  self.assertEqual(opening.call_count,1);self.assertIn('unable to get local issuer certificate',str(e.exception));self.assertIn('verify_code 20',output.getvalue());self.assertEqual(part.read_bytes(),b'ab');self.assertFalse(f.exists())
+ def test_tls_context_keeps_verification_and_adds_extra_roots(self):
+  import ssl,types,sys
+  with patch.object(p,'CA_FILE',None):
+   context=p.make_tls_context();self.assertEqual(context.verify_mode,ssl.CERT_REQUIRED);self.assertTrue(context.check_hostname)
+  from unittest.mock import MagicMock
+  context=MagicMock()
+  with patch.object(p.ssl,'create_default_context',return_value=context),patch.dict(sys.modules,{'certifi':types.SimpleNamespace(where=lambda:'public-ca.pem')}),patch.object(p,'CA_FILE','custom-ca.pem'):
+   self.assertIs(p.make_tls_context(),context)
+  self.assertEqual([c.kwargs for c in context.load_verify_locations.call_args_list],[{'cafile':'public-ca.pem'},{'cafile':'custom-ca.pem'}])
  def test_timeout_reports_destination_and_keeps_partial(self):
   f=self.root/'timeout.gguf';part=f.with_name(f.name+'.part');part.write_bytes(b'ab')
   def fail(*args,**kwargs):

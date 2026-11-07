@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$AssetsPath,[switch]$Probe,[string]$Mirror='https://huggingface.co',[string]$Proxy,[int]$Timeout=25)
+param([string]$AssetsPath,[switch]$Probe,[string]$Mirror='https://huggingface.co',[string]$Proxy,[string]$CAFile,[int]$Timeout=25)
 $ErrorActionPreference='Stop'
 Set-Location -LiteralPath $PSScriptRoot
 if(!$AssetsPath){$AssetsPath=Read-Host '파일을 받을 폴더 [../strata-assets]';if([string]::IsNullOrWhiteSpace($AssetsPath)){$AssetsPath='../strata-assets'}}
@@ -24,10 +24,12 @@ Write-Host ('SC117 모델: '+($quants -join ', ')+'. 공통 엔진·이미지 �
 if($Probe){$py='py';$prefix=@('-3.11')}else{
  $venv=Join-Path $AssetsPath '.prepare-venv';$py=Join-Path $venv 'Scripts/python.exe'
  if(!(Test-Path -LiteralPath $py)){& py -3.11 -m venv $venv;if($LASTEXITCODE -ne 0){throw 'Python 3.11 x64를 먼저 직접 설치하세요.'}}
+ & $py -m pip install --upgrade certifi;if($LASTEXITCODE -ne 0){throw '공개 CA 인증서 패키지 갱신 실패. 위 pip 오류를 확인하세요.'}
  & $py -m pip install -r (Join-Path $PSScriptRoot 'vendor/strata/requirements.txt');if($LASTEXITCODE -ne 0){throw '준비 패키지 설치 실패'};$prefix=@()
 }
 $call=@($prefix)+@((Join-Path $PSScriptRoot 'scripts/prepare_models.py'),'--assets',$AssetsPath,'--mirror',$Mirror,'--timeout',[string]$Timeout)
 $call+=@('--quants')+$quants
+if($CAFile){$call+=@('--ca-file',$CAFile)}
 if($Proxy){$call+=@('--proxy',$Proxy)}
 if($images -match '^[Nn]$'){$call+='--no-images'}
 if($Probe){$call+='--probe'}
