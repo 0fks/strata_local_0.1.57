@@ -1,12 +1,24 @@
 ﻿[CmdletBinding()]
-param([string]$SettingsPath=(Join-Path $PSScriptRoot 'settings.local.json'),[switch]$UseSettings,[switch]$PlanOnly)
+param([string]$SettingsPath,[switch]$UseSettings,[switch]$PlanOnly)
 $ErrorActionPreference='Stop'
-Set-Location -LiteralPath $PSScriptRoot
+# Resolve defaults after the parameter block: PSScriptRoot can be empty during binding.
+$installerRoot=$PSScriptRoot
+if([string]::IsNullOrWhiteSpace($installerRoot)){
+ if($PSCommandPath){$installerRoot=Split-Path -Parent $PSCommandPath}
+ elseif($MyInvocation.MyCommand.Path){$installerRoot=Split-Path -Parent $MyInvocation.MyCommand.Path}
+ else{
+  $candidate=(Get-Location).Path
+  if((Test-Path -LiteralPath ([IO.Path]::Combine($candidate,'Install.ps1'))) -and (Test-Path -LiteralPath ([IO.Path]::Combine($candidate,'settings.example.json')))){$installerRoot=$candidate}
+ }
+}
+if([string]::IsNullOrWhiteSpace($installerRoot)){throw 'Install.cmd를 저장소 폴더에서 실행하세요. 설치기 파일 경로를 확인할 수 없습니다.'}
+Set-Location -LiteralPath $installerRoot
+if([string]::IsNullOrWhiteSpace($SettingsPath)){$SettingsPath=[IO.Path]::Combine($installerRoot,'settings.local.json')}
 $SettingsPath=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($SettingsPath)
 function Ask($label,$default){$v=Read-Host "$label [$default]";if([string]::IsNullOrWhiteSpace($v)){return $default};return $v.Trim().Trim('"')}
 function Yes($label,$default){$d=if($default){'Y'}else{'N'};while($true){$v=Ask "$label (Y/N)" $d;if($v -match '^[Yy]$'){return $true};if($v -match '^[Nn]$'){return $false};Write-Host 'Y 또는 N 입력'}}
 if(!$UseSettings){
- $s=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'settings.example.json') -Raw|ConvertFrom-Json
+ $s=Get-Content -LiteralPath (Join-Path $installerRoot 'settings.example.json') -Raw|ConvertFrom-Json
  if(Test-Path -LiteralPath $SettingsPath){$s=Get-Content -LiteralPath $SettingsPath -Raw|ConvertFrom-Json}
  Write-Host '경로는 이 설정 파일이 있는 폴더를 기준으로 해석합니다. 기본값이 맞으면 Enter를 누르세요.'
  $s.python_exe=Ask '준비한 Python 실행 파일' $s.python_exe
@@ -34,11 +46,11 @@ if(!$UseSettings){
 $s=Get-Content -LiteralPath $SettingsPath -Raw|ConvertFrom-Json
 $py=$s.python_exe;if(![IO.Path]::IsPathRooted($py)){$py=Join-Path (Split-Path -Parent $SettingsPath) $py}
 if(!(Test-Path -LiteralPath $py)){throw 'Python 준비가 필요합니다. README의 1단계를 진행하세요.'}
-& $py (Join-Path $PSScriptRoot 'scripts/strata_local.py') plan --settings $SettingsPath
+& $py (Join-Path $installerRoot 'scripts/strata_local.py') plan --settings $SettingsPath
 if($LASTEXITCODE -ne 0){throw '파일 준비가 필요합니다. Prepare-Models.cmd를 실행하거나 docs/ASSETS.ko.md를 보세요.'}
 if($PlanOnly){return}
 if(!(Yes '위 설정으로 설치할까요?' $true)){return}
-& $py (Join-Path $PSScriptRoot 'scripts/strata_local.py') install --settings $SettingsPath
+& $py (Join-Path $installerRoot 'scripts/strata_local.py') install --settings $SettingsPath
 if($LASTEXITCODE -ne 0){throw '설치 실패. 위 오류 내용을 확인하세요.'}
 $root=$s.install_root;if(![IO.Path]::IsPathRooted($root)){$root=Join-Path (Split-Path -Parent $SettingsPath) $root}
 Write-Host "설치 완료. OpenCode JSON: $root\clients"
