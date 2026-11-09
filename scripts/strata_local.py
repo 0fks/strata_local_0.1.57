@@ -171,6 +171,8 @@ def install(s,quick=False):
     keys=[secrets.token_urlsafe(36) for _ in range(5)];save(root/'server.json',server_config(s,paths,keys,root));save(root/'api-keys.private.json',{'local':keys[0],'lan':keys[1],'reserved':keys[2:]})
     local=opencode(s,'http://127.0.0.1:'+str(s['port']),keys[0]);save(root/'clients/Local/opencode.json',local)
     if s['lan']:save(root/'clients/LAN/opencode.json',opencode(s,'http://'+s['advertise_host']+':'+str(s['port']),keys[1]))
+    from export_opencode_provider import export_root
+    export_root(root)
     for verb in ('start','stop','check'):
         (root/(verb.capitalize()+'-Strata.cmd')).write_text('@echo off\r\n"%~dp0.venv\\Scripts\\python.exe" "%~dp0manager.py" '+verb+' --root "%~dp0."\r\nif errorlevel 1 pause\r\n',encoding='ascii')
     if s['merge_opencode']:merge_opencode(Path.home()/'.config/opencode/opencode.json',local)

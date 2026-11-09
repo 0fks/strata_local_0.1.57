@@ -63,3 +63,5 @@ Strata를 Stop → 다운로드 폴더 전체 이동 → **Change-Assets.cmd**�
 [파일 목록](docs/ASSETS.ko.md) · [Python/CUDA](docs/PREREQUISITES.ko.md) · [OpenCode](docs/OPENCODE.ko.md) · [연결 진단](docs/NETWORK.ko.md) · [검증 범위](docs/VALIDATION.ko.md) · [라이선스](THIRD_PARTY_NOTICES.md)
 
 이미 1번으로 준비한 데이터는 업데이트 후에도 그대로 사용합니다. 다시 다운로드하거나 폴더를 옮길 필요가 없습니다. 같은 폴더에서 4번만 재실행해도 기존 IQ3_S 데이터는 삭제하지 않습니다.
+
+회사 OpenCode가 기존 config.json의 provider(단수)를 쓰는 경우: Export-OpenCode-Provider.cmd를 실행하고 해당 Strata 설치 폴더를 지정하세요. 생성된 clients/Local/provider-entry.txt를 기존 provider 객체 안에 추가하면 됩니다. LAN용은 clients/LAN에 있습니다. 기존 $schema·다른 공급자·MCP는 유지합니다. [복사 방법](docs/OPENCODE.ko.md)
